@@ -25,6 +25,7 @@
 #include "postgres.h"
 
 #include "access/sysattr.h"
+#include "access/heapam.h"
 #include "catalog/pg_type_d.h"
 #include "miscadmin.h"
 #include "nodes/makefuncs.h"
@@ -33,7 +34,7 @@
 #include "nodes/parsenodes.h"
 #include "nodes/pg_list.h"
 #include "nodes/primnodes.h"
-#include "optimizer/var.h"
+#include "optimizer/optimizer.h"
 #include "parser/parse_clause.h"
 #include "parser/parse_coerce.h"
 #include "parser/parse_collate.h"
@@ -3537,7 +3538,7 @@ transform_create_cypher_edge(cypher_parsestate *cpstate, List **target_list,
     rel->relid = RelationGetRelid(label_relation);
 
     rte = addRangeTableEntryForRelation((ParseState *)cpstate, label_relation,
-                                        NULL, false, false);
+                                        AccessShareLock, NULL, false, false);
     rte->requiredPerms = ACL_INSERT;
 
     // Build Id expression, always use the default logic
@@ -3763,7 +3764,7 @@ transform_create_cypher_new_node(cypher_parsestate *cpstate,
     rel->relid = RelationGetRelid(label_relation);
 
     rte = addRangeTableEntryForRelation((ParseState *)cpstate, label_relation,
-                                        NULL, false, false);
+                                        RowExclusiveLock, NULL, false, false);
     rte->requiredPerms = ACL_INSERT;
 
     // id

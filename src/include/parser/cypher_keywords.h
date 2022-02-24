@@ -22,7 +22,13 @@
 
 #include "common/keywords.h"
 
-extern const ScanKeyword cypher_keywords[];
+typedef struct cypher_keyword
+{
+    char *kwname;
+    int value;
+    int category;
+} cypher_keyword;
+extern cypher_keyword cypher_keywords[42];
 extern const int num_cypher_keywords;
 
 #endif

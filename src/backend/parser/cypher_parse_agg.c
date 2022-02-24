@@ -27,7 +27,7 @@
 #include "catalog/pg_constraint.h"
 #include "nodes/nodeFuncs.h"
 #include "optimizer/tlist.h"
-#include "optimizer/var.h"
+#include "optimizer/optimizer.h"
 #include "parser/cypher_parse_agg.h"
 #include "parser/parsetree.h"
 #include "rewrite/rewriteManip.h"

@@ -38,48 +38,50 @@
  * This list must be sorted by ASCII name, because binary search is used to
  * locate entries.
  */
-const ScanKeyword cypher_keywords[] = {
-    {"analyze", ANALYZE, RESERVED_KEYWORD},
-    {"and", AND, RESERVED_KEYWORD},
-    {"as", AS, RESERVED_KEYWORD},
-    {"asc", ASC, RESERVED_KEYWORD},
-    {"ascending", ASCENDING, RESERVED_KEYWORD},
-    {"by", BY, RESERVED_KEYWORD},
-    {"case", CASE, RESERVED_KEYWORD},
-    {"coalesce", COALESCE, RESERVED_KEYWORD},
-    {"contains", CONTAINS, RESERVED_KEYWORD},
-    {"create", CREATE, RESERVED_KEYWORD},
-    {"delete", DELETE, RESERVED_KEYWORD},
-    {"desc", DESC, RESERVED_KEYWORD},
-    {"descending", DESCENDING, RESERVED_KEYWORD},
-    {"detach", DETACH, RESERVED_KEYWORD},
-    {"distinct", DISTINCT, RESERVED_KEYWORD},
-    {"else", ELSE, RESERVED_KEYWORD},
-    {"end", END_P, RESERVED_KEYWORD},
-    {"ends", ENDS, RESERVED_KEYWORD},
-    {"exists", EXISTS, RESERVED_KEYWORD},
-    {"explain", EXPLAIN, RESERVED_KEYWORD},
-    {"false", FALSE_P, RESERVED_KEYWORD},
-    {"in", IN, RESERVED_KEYWORD},
-    {"is", IS, RESERVED_KEYWORD},
-    {"limit", LIMIT, RESERVED_KEYWORD},
-    {"match", MATCH, RESERVED_KEYWORD},
-    {"not", NOT, RESERVED_KEYWORD},
-    {"null", NULL_P, RESERVED_KEYWORD},
-    {"or", OR, RESERVED_KEYWORD},
-    {"order", ORDER, RESERVED_KEYWORD},
-    {"remove", REMOVE, RESERVED_KEYWORD},
-    {"return", RETURN, RESERVED_KEYWORD},
-    {"set", SET, RESERVED_KEYWORD},
-    {"skip", SKIP, RESERVED_KEYWORD},
-    {"starts", STARTS, RESERVED_KEYWORD},
-    {"then", THEN, RESERVED_KEYWORD},
-    {"true", TRUE_P, RESERVED_KEYWORD},
-    {"verbose", VERBOSE, RESERVED_KEYWORD},
-    {"when", WHEN, RESERVED_KEYWORD},
-    {"where", WHERE, RESERVED_KEYWORD},
-    {"with", WITH, RESERVED_KEYWORD},
-    {"xor", XOR, RESERVED_KEYWORD}
+#define PG_KEYWORD(kwname, value, category) category,
+
+const uint16 cypher_keywords[] = {
+    PG_KEYWORD("analyze", ANALYZE, RESERVED_KEYWORD)
+    PG_KEYWORD("and", AND, RESERVED_KEYWORD)
+    PG_KEYWORD("as", AS, RESERVED_KEYWORD)
+    PG_KEYWORD("asc", ASC, RESERVED_KEYWORD)
+    PG_KEYWORD("ascending", ASCENDING, RESERVED_KEYWORD)
+    PG_KEYWORD("by", BY, RESERVED_KEYWORD)
+    PG_KEYWORD("case", CASE, RESERVED_KEYWORD)
+    PG_KEYWORD("coalesce", COALESCE, RESERVED_KEYWORD)
+    PG_KEYWORD("contains", CONTAINS, RESERVED_KEYWORD)
+    PG_KEYWORD("create", CREATE, RESERVED_KEYWORD)
+    PG_KEYWORD("delete", DELETE, RESERVED_KEYWORD)
+    PG_KEYWORD("desc", DESC, RESERVED_KEYWORD)
+    PG_KEYWORD("descending", DESCENDING, RESERVED_KEYWORD)
+    PG_KEYWORD("detach", DETACH, RESERVED_KEYWORD)
+    PG_KEYWORD("distinct", DISTINCT, RESERVED_KEYWORD)
+    PG_KEYWORD("else", ELSE, RESERVED_KEYWORD)
+    PG_KEYWORD("end", END_P, RESERVED_KEYWORD)
+    PG_KEYWORD("ends", ENDS, RESERVED_KEYWORD)
+    PG_KEYWORD("exists", EXISTS, RESERVED_KEYWORD)
+    PG_KEYWORD("explain", EXPLAIN, RESERVED_KEYWORD)
+    PG_KEYWORD("false", FALSE_P, RESERVED_KEYWORD)
+    PG_KEYWORD("in", IN, RESERVED_KEYWORD)
+    PG_KEYWORD("is", IS, RESERVED_KEYWORD)
+    PG_KEYWORD("limit", LIMIT, RESERVED_KEYWORD)
+    PG_KEYWORD("match", MATCH, RESERVED_KEYWORD)
+    PG_KEYWORD("not", NOT, RESERVED_KEYWORD)
+    PG_KEYWORD("null", NULL_P, RESERVED_KEYWORD)
+    PG_KEYWORD("or", OR, RESERVED_KEYWORD)
+    PG_KEYWORD("order", ORDER, RESERVED_KEYWORD)
+    PG_KEYWORD("remove", REMOVE, RESERVED_KEYWORD)
+    PG_KEYWORD("return", RETURN, RESERVED_KEYWORD)
+    PG_KEYWORD("set", SET, RESERVED_KEYWORD)
+    PG_KEYWORD("skip", SKIP, RESERVED_KEYWORD)
+    PG_KEYWORD("starts", STARTS, RESERVED_KEYWORD)
+    PG_KEYWORD("then", THEN, RESERVED_KEYWORD)
+    PG_KEYWORD("true", TRUE_P, RESERVED_KEYWORD)
+    PG_KEYWORD("verbose", VERBOSE, RESERVED_KEYWORD)
+    PG_KEYWORD("when", WHEN, RESERVED_KEYWORD)
+    PG_KEYWORD("where", WHERE, RESERVED_KEYWORD)
+    PG_KEYWORD("with", WITH, RESERVED_KEYWORD)
+    PG_KEYWORD("xor", XOR, RESERVED_KEYWORD)
 };
 
 const int num_cypher_keywords = lengthof(cypher_keywords);
@@ -99,7 +101,7 @@ Datum get_cypher_keywords(PG_FUNCTION_ARGS)
         func_ctx = SRF_FIRSTCALL_INIT();
         old_mem_ctx = MemoryContextSwitchTo(func_ctx->multi_call_memory_ctx);
 
-        tup_desc = CreateTemplateTupleDesc(3, false);
+        tup_desc = CreateTemplateTupleDesc(3);
         TupleDescInitEntry(tup_desc, (AttrNumber)1, "word", TEXTOID, -1, 0);
         TupleDescInitEntry(tup_desc, (AttrNumber)2, "catcode", CHAROID, -1, 0);
         TupleDescInitEntry(tup_desc, (AttrNumber)3, "catdesc", TEXTOID, -1, 0);
@@ -117,9 +119,10 @@ Datum get_cypher_keywords(PG_FUNCTION_ARGS)
         HeapTuple tuple;
 
         // cast-away-const is ugly but alternatives aren't much better
-        values[0] = (char *)cypher_keywords[func_ctx->call_cntr].name;
+        //values[0] = (char *)cypher_keywords[func_ctx->call_cntr].name;
+        values[0] = "Ibrar:FIXME";
 
-        switch (cypher_keywords[func_ctx->call_cntr].category)
+        switch (cypher_keywords[func_ctx->call_cntr])
         {
         case UNRESERVED_KEYWORD:
             values[1] = "U";

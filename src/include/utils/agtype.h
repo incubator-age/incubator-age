@@ -38,7 +38,7 @@
 #include "utils/array.h"
 #include "utils/numeric.h"
 #include "utils/syscache.h"
-
+#include  "catalog/pg_type.h"
 #include "catalog/ag_namespace.h"
 #include "utils/graphid.h"
 
@@ -528,12 +528,12 @@ void add_agtype(Datum val, bool is_null, agtype_in_state *result, Oid val_type,
 
 // OID of agtype and _agtype
 #define AGTYPEOID \
-    (GetSysCacheOid2(TYPENAMENSP, CStringGetDatum("agtype"), \
+    (GetSysCacheOid2(TYPENAMENSP, Anum_pg_type_oid, CStringGetDatum("agtype"), \
                      ObjectIdGetDatum(ag_catalog_namespace_id())))
 #define AGTYPEARRAYOID \
-    (GetSysCacheOid2(TYPENAMENSP, CStringGetDatum("_agtype"), \
+    (GetSysCacheOid2(TYPENAMENSP, Anum_pg_type_oid, CStringGetDatum("_agtype"), \
                      ObjectIdGetDatum(ag_catalog_namespace_id())))
 #define GRAPHIDOID \
-    (GetSysCacheOid2(TYPENAMENSP, CStringGetDatum("graphid"), \
+    (GetSysCacheOid2(TYPENAMENSP, Anum_pg_type_oid, CStringGetDatum("graphid"), \
                      ObjectIdGetDatum(ag_catalog_namespace_id())))
 #endif

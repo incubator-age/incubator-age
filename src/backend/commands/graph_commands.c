@@ -345,11 +345,11 @@ List *get_graphnames(void)
     List *graphnames = NIL;
     char *str;
 
-    ag_graph = heap_open(ag_graph_relation_id(), RowExclusiveLock);
+    ag_graph = table_open(ag_graph_relation_id(), RowExclusiveLock);
     scan_desc = systable_beginscan(ag_graph, ag_graph_name_index_id(), true,
                                    NULL, 0, NULL);
 
-    slot = MakeTupleTableSlot(RelationGetDescr(ag_graph));
+    slot = MakeTupleTableSlot(RelationGetDescr(ag_graph), &TTSOpsHeapTuple);
 
     for (;;)
     {
@@ -358,7 +358,7 @@ List *get_graphnames(void)
             break;
 
         ExecClearTuple(slot);
-        ExecStoreTuple(tuple, slot, InvalidBuffer, false);
+        ExecStoreHeapTuple(tuple, slot, false);
 
         slot_getallattrs(slot);
 
@@ -368,7 +368,7 @@ List *get_graphnames(void)
 
     ExecDropSingleTupleTableSlot(slot);
     systable_endscan(scan_desc);
-    heap_close(ag_graph, RowExclusiveLock);
+    table_close(ag_graph, RowExclusiveLock);
 
     return graphnames;
 }

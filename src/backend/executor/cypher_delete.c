@@ -23,6 +23,8 @@
 #include "access/htup_details.h"
 #include "access/multixact.h"
 #include "access/xact.h"
+#include "access/heapam.h"
+#include "access/tableam.h"
 #include "storage/bufmgr.h"
 #include "executor/tuptable.h"
 #include "nodes/execnodes.h"
@@ -33,7 +35,6 @@
 #include "parser/parse_relation.h"
 #include "rewrite/rewriteHandler.h"
 #include "utils/rel.h"
-#include "utils/tqual.h"
 
 #include "catalog/ag_label.h"
 #include "commands/label_commands.h"
@@ -99,7 +100,7 @@ static void begin_cypher_delete(CustomScanState *node, EState *estate,
 
     // setup scan tuple slot and projection info
     ExecInitScanTupleSlot(estate, &node->ss,
-                          ExecGetResultType(node->ss.ps.lefttree));
+                          ExecGetResultType(node->ss.ps.lefttree), &TTSOpsHeapTuple);
 
     if (!CYPHER_CLAUSE_IS_TERMINAL(css->flags))
     {
@@ -284,9 +285,10 @@ static void delete_entity(EState *estate, ResultRelInfo *resultRelInfo,
 {
     ResultRelInfo *saved_resultRelInfo;
     LockTupleMode lockmode;
-    HeapUpdateFailureData hufd;
-    HTSU_Result lock_result;
-    HTSU_Result delete_result;
+    TM_FailureData hufd;
+    TM_Result lock_result;
+    TM_Result delete_result;
+
     Buffer buffer;
 
     // Find the physical tuple, this variable is coming from
@@ -307,7 +309,7 @@ static void delete_entity(EState *estate, ResultRelInfo *resultRelInfo,
      * clause, the result will HeapTupleInvisible. Throw an error if any
      * other result was returned.
      */
-    if (lock_result == HeapTupleMayBeUpdated)
+    if (lock_result == TM_BeingModified)
     {
         delete_result = heap_delete(resultRelInfo->ri_RelationDesc,
                                     &tuple->t_self, GetCurrentCommandId(true),
@@ -320,15 +322,9 @@ static void delete_entity(EState *estate, ResultRelInfo *resultRelInfo,
          */
         switch (delete_result)
         {
-                case HeapTupleMayBeUpdated:
+                case TM_BeingModified:
                         break;
-                case HeapTupleSelfUpdated:
-                        ereport(ERROR,
-                                (errcode(ERRCODE_INTERNAL_ERROR),
-                                         errmsg("deleting the same entity more than once cannot happen")));
-                        /* ereport never gets here */
-                        break;
-                case HeapTupleUpdated:
+                case TM_Updated:
                         ereport(ERROR,
                                 (errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
                                          errmsg("could not serialize access due to concurrent update")));
@@ -342,8 +338,8 @@ static void delete_entity(EState *estate, ResultRelInfo *resultRelInfo,
         /* increment the command counter */
         CommandCounterIncrement();
     }
-    else if (lock_result != HeapTupleInvisible &&
-             lock_result != HeapTupleSelfUpdated)
+    else if (lock_result != TM_Invisible &&
+             lock_result != TM_SelfModified)
     {
         ereport(ERROR,
                 (errcode(ERRCODE_INTERNAL_ERROR),
@@ -374,7 +370,7 @@ static void process_delete_list(CustomScanState *node)
         cypher_delete_item *item;
         agtype_value *original_entity_value, *id, *label;
         ScanKeyData scan_keys[1];
-        HeapScanDesc scan_desc;
+        TableScanDesc scan_desc;
         ResultRelInfo *resultRelInfo;
         HeapTuple heap_tuple;
         char *label_name;
@@ -424,7 +420,7 @@ static void process_delete_list(CustomScanState *node)
         /*
          * Setup the scan description, with the correct snapshot and scan keys.
          */
-        scan_desc = heap_beginscan(resultRelInfo->ri_RelationDesc,
+        scan_desc = table_beginscan(resultRelInfo->ri_RelationDesc,
                                    estate->es_snapshot, 1, scan_keys);
 
         /* Retrieve the tuple. */
@@ -492,18 +488,18 @@ static void find_connected_edges(CustomScanState *node, char *graph_name,
     {
         char *label_name = lfirst(lc);
         ResultRelInfo *resultRelInfo;
-        HeapScanDesc scan_desc;
+        TableScanDesc scan_desc;
         HeapTuple tuple;
         TupleTableSlot *slot;
 
         resultRelInfo = create_entity_result_rel_info(estate,
                                                       graph_name, label_name);
 
-        scan_desc = heap_beginscan(resultRelInfo->ri_RelationDesc,
+        scan_desc = table_beginscan(resultRelInfo->ri_RelationDesc,
                                    estate->es_snapshot, 0, NULL);
 
         slot = ExecInitExtraTupleSlot(estate,
-                    RelationGetDescr(resultRelInfo->ri_RelationDesc));
+                    RelationGetDescr(resultRelInfo->ri_RelationDesc), &TTSOpsHeapTuple);
 
         // scan the table
         while(true)
@@ -517,7 +513,7 @@ static void find_connected_edges(CustomScanState *node, char *graph_name,
             if (!HeapTupleIsValid(tuple))
                 break;
 
-            ExecStoreTuple(tuple, slot, InvalidBuffer, false);
+            ExecStoreHeapTuple(tuple, slot, false);
 
             startid = GRAPHID_GET_DATUM(slot_getattr(slot, Anum_ag_label_edge_table_start_id, &isNull));
             endid = GRAPHID_GET_DATUM(slot_getattr(slot, Anum_ag_label_edge_table_end_id, &isNull));

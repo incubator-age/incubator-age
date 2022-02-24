@@ -22,6 +22,7 @@
 #include "catalog/pg_type_d.h"
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
+
 #include "nodes/nodes.h"
 #include "nodes/parsenodes.h"
 #include "nodes/pg_list.h"
@@ -175,7 +176,7 @@ static bool convert_cypher_walker(Node *node, ParseState *pstate)
          * QTW_IGNORE_JOINALIASES
          *     We are not interested in this.
          */
-        flags = QTW_EXAMINE_RTES | QTW_IGNORE_RT_SUBQUERIES |
+        flags = QTW_EXAMINE_RTES_BEFORE | QTW_IGNORE_RT_SUBQUERIES |
                 QTW_IGNORE_JOINALIASES;
 
         /* clear the global variable extra_node */

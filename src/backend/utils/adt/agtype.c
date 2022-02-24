@@ -1996,7 +1996,7 @@ Datum _agtype_build_vertex(PG_FUNCTION_ARGS)
     result.res = push_agtype_value(&result.parse_state, WAGT_KEY,
                                    string_to_agtype_value("id"));
 
-    if (fcinfo->argnull[0])
+    if (fcinfo->args[0].isnull)
         ereport(ERROR,
                 (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                  errmsg("_agtype_build_vertex() graphid cannot be NULL")));
@@ -2009,7 +2009,7 @@ Datum _agtype_build_vertex(PG_FUNCTION_ARGS)
     result.res = push_agtype_value(&result.parse_state, WAGT_KEY,
                                    string_to_agtype_value("label"));
 
-    if (fcinfo->argnull[1])
+    if (fcinfo->args[1].isnull)
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                         errmsg("_agtype_build_vertex() label cannot be NULL")));
 
@@ -2022,7 +2022,7 @@ Datum _agtype_build_vertex(PG_FUNCTION_ARGS)
                                    string_to_agtype_value("properties"));
 
     //if the properties object is null, push an empty object
-    if (fcinfo->argnull[2])
+    if (fcinfo->args[2].isnull)
     {
         result.res = push_agtype_value(&result.parse_state, WAGT_BEGIN_OBJECT,
                                        NULL);
@@ -2078,7 +2078,7 @@ Datum _agtype_build_edge(PG_FUNCTION_ARGS)
     result.res = push_agtype_value(&result.parse_state, WAGT_KEY,
                                    string_to_agtype_value("id"));
 
-    if (fcinfo->argnull[0])
+    if (fcinfo->args[0].isnull)
         ereport(ERROR,
                 (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                  errmsg("_agtype_build_edge() graphid cannot be NULL")));
@@ -2091,7 +2091,7 @@ Datum _agtype_build_edge(PG_FUNCTION_ARGS)
     result.res = push_agtype_value(&result.parse_state, WAGT_KEY,
                                    string_to_agtype_value("label"));
 
-    if (fcinfo->argnull[3])
+    if (fcinfo->args[3].isnull)
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                         errmsg("_agtype_build_vertex() label cannot be NULL")));
 
@@ -2103,7 +2103,7 @@ Datum _agtype_build_edge(PG_FUNCTION_ARGS)
     result.res = push_agtype_value(&result.parse_state, WAGT_KEY,
                                    string_to_agtype_value("end_id"));
 
-    if (fcinfo->argnull[2])
+    if (fcinfo->args[2].isnull)
         ereport(ERROR,
                 (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                  errmsg("_agtype_build_edge() endid cannot be NULL")));
@@ -2116,7 +2116,7 @@ Datum _agtype_build_edge(PG_FUNCTION_ARGS)
     result.res = push_agtype_value(&result.parse_state, WAGT_KEY,
                                    string_to_agtype_value("start_id"));
 
-    if (fcinfo->argnull[1])
+    if (fcinfo->args[1].isnull)
         ereport(ERROR,
                 (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                  errmsg("_agtype_build_edge() startid cannot be NULL")));
@@ -2130,7 +2130,7 @@ Datum _agtype_build_edge(PG_FUNCTION_ARGS)
                                    string_to_agtype_value("properties"));
 
     /* if the properties object is null, push an empty object */
-    if (fcinfo->argnull[4])
+    if (fcinfo->args[4].isnull)
     {
         result.res = push_agtype_value(&result.parse_state, WAGT_BEGIN_OBJECT,
                                        NULL);
@@ -3885,9 +3885,9 @@ Datum column_get_datum(TupleDesc tupdesc, HeapTuple tuple, int column,
  */
 static char *get_label_name(const char *graph_name, int64 graphid)
 {
-    ScanKeyData scan_keys[2];
+    //Ibrar-FiXME: ScanKeyData scan_keys[2];
     Relation ag_label;
-    SysScanDesc scan_desc;
+    //Ibrar-FiXME: SysScanDesc scan_desc;
     HeapTuple tuple;
     TupleDesc tupdesc;
     char *result = NULL;
@@ -3895,19 +3895,19 @@ static char *get_label_name(const char *graph_name, int64 graphid)
     Oid graphoid = get_graph_oid(graph_name);
 
     /* scankey for first match in ag_label, column 2, graphoid, BTEQ, OidEQ */
-    ScanKeyInit(&scan_keys[0], Anum_ag_label_graph, BTEqualStrategyNumber,
-                F_OIDEQ, ObjectIdGetDatum(graphoid));
+    //Ibrar-FiXME: ScanKeyInit(&scan_keys[0], Anum_ag_label_graph, BTEqualStrategyNumber,
+     //Ibrar-FiXME:            F_OIDEQ, ObjectIdGetDatum(graphoid));
     /* scankey for second match in ag_label, column 3, label id, BTEQ, Int4EQ */
-    ScanKeyInit(&scan_keys[1], Anum_ag_label_id, BTEqualStrategyNumber,
-                F_INT4EQ, Int32GetDatum(get_graphid_label_id(graphid)));
+    //Ibrar-FiXME: ScanKeyInit(&scan_keys[1], Anum_ag_label_id, BTEqualStrategyNumber,
+     //Ibrar-FiXME:            F_INT4EQ, Int32GetDatum(get_graphid_label_id(graphid)));
 
     ag_label = heap_open(ag_relation_id("ag_label", "table"), ShareLock);
-    scan_desc = systable_beginscan(ag_label,
-                                   ag_relation_id("ag_label_graph_id_index",
-                                                  "index"), true, NULL, 2,
-                                   scan_keys);
+    //Ibrar-FiXME: scan_desc = systable_beginscan(ag_label,
+    //Ibrar-FiXME:                                ag_relation_id("ag_label_graph_id_index",
+    //Ibrar-FiXME:                                               "index"), true, NULL, 2,
+    //Ibrar-FiXME:                                scan_keys);
 
-    tuple = systable_getnext(scan_desc);
+    //Ibrar-FiXME: tuple = systable_getnext(scan_desc);
     if (!HeapTupleIsValid(tuple))
     {
         ereport(ERROR,
@@ -3931,7 +3931,7 @@ static char *get_label_name(const char *graph_name, int64 graphid)
     result = strdup(result);
 
     /* end the scan and close the relation */
-    systable_endscan(scan_desc);
+    //Ibrar-FiXME: systable_endscan(scan_desc);
     heap_close(ag_label, ShareLock);
 
     return result;
@@ -3940,9 +3940,9 @@ static char *get_label_name(const char *graph_name, int64 graphid)
 static Datum get_vertex(const char *graph, const char *vertex_label,
                         int64 graphid)
 {
-    ScanKeyData scan_keys[1];
+    //Ibrar-FiXME: ScanKeyData scan_keys[1];
     Relation graph_vertex_label;
-    HeapScanDesc scan_desc;
+    //Ibrar-FiXME: HeapScanDesc scan_desc;
     HeapTuple tuple;
     TupleDesc tupdesc;
     Datum id, properties, result;
@@ -3956,13 +3956,13 @@ static Datum get_vertex(const char *graph, const char *vertex_label,
     Snapshot snapshot = GetActiveSnapshot();
 
     /* initialize the scan key */
-    ScanKeyInit(&scan_keys[0], 1, BTEqualStrategyNumber, F_OIDEQ,
-                Int64GetDatum(graphid));
+    //Ibrar-FiXME: ScanKeyInit(&scan_keys[0], 1, BTEqualStrategyNumber, F_OIDEQ,
+    //Ibrar-FiXME:             Int64GetDatum(graphid));
 
     /* open the relation (table), begin the scan, and get the tuple  */
     graph_vertex_label = heap_open(vertex_label_table_oid, ShareLock);
-    scan_desc = heap_beginscan(graph_vertex_label, snapshot, 1, scan_keys);
-    tuple = heap_getnext(scan_desc, ForwardScanDirection);
+    //Ibrar-FiXME: scan_desc = heap_beginscan(graph_vertex_label, snapshot, 1, scan_keys);
+    //Ibrar-FiXME: uple = heap_getnext(scan_desc, ForwardScanDirection);
 
     /* bail if the tuple isn't valid */
     if (!HeapTupleIsValid(tuple))
@@ -3990,7 +3990,7 @@ static Datum get_vertex(const char *graph, const char *vertex_label,
     result = DirectFunctionCall3(_agtype_build_vertex, id,
                                  CStringGetDatum(vertex_label), properties);
     /* end the scan and close the relation */
-    heap_endscan(scan_desc);
+    //Ibrar-FiXME: iheap_endscan(scan_desc);
     heap_close(graph_vertex_label, ShareLock);
     /* return the vertex datum */
     return result;

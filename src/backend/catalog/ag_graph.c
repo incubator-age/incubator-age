@@ -25,6 +25,7 @@
 #include "access/htup_details.h"
 #include "access/skey.h"
 #include "access/stratnum.h"
+#include "catalog/catalog.h"
 #include "catalog/indexing.h"
 #include "storage/lockdefs.h"
 #include "utils/builtins.h"
@@ -41,22 +42,25 @@ static Oid get_graph_namespace(const char *graph_name);
 // INSERT INTO ag_catalog.ag_graph VALUES (graph_name, nsp_id)
 Oid insert_graph(const Name graph_name, const Oid nsp_id)
 {
-    Datum values[Natts_ag_graph];
-    bool nulls[Natts_ag_graph];
-    Relation ag_graph;
+    Datum     values[Natts_ag_graph];
+    bool      nulls[Natts_ag_graph] = {false};
+    Relation  ag_graph;
     HeapTuple tuple;
-    Oid graph_oid;
+    Oid       graph_oid;
 
     AssertArg(graph_name);
     AssertArg(OidIsValid(nsp_id));
 
+    ag_graph = table_open(ag_graph_relation_id(), RowExclusiveLock);
+
+    graph_oid = GetNewOidWithIndex(ag_graph,
+                                  ag_graph_name_index_id(),
+                                  Anum_ag_graph_oid);
+
+    values[Anum_ag_graph_oid - 1] = graph_oid;
     values[Anum_ag_graph_name - 1] = NameGetDatum(graph_name);
-    nulls[Anum_ag_graph_name - 1] = false;
-
     values[Anum_ag_graph_namespace - 1] = ObjectIdGetDatum(nsp_id);
-    nulls[Anum_ag_graph_namespace - 1] = false;
 
-    ag_graph = heap_open(ag_graph_relation_id(), RowExclusiveLock);
 
     tuple = heap_form_tuple(RelationGetDescr(ag_graph), values, nulls);
 
@@ -64,9 +68,9 @@ Oid insert_graph(const Name graph_name, const Oid nsp_id)
      * CatalogTupleInsert() is originally for PostgreSQL's catalog. However,
      * it is used at here for convenience.
      */
-    graph_oid = CatalogTupleInsert(ag_graph, tuple);
+    CatalogTupleInsert(ag_graph, tuple);
 
-    heap_close(ag_graph, RowExclusiveLock);
+    table_close(ag_graph, RowExclusiveLock);
 
     return graph_oid;
 }
@@ -82,7 +86,7 @@ void delete_graph(const Name graph_name)
     ScanKeyInit(&scan_keys[0], Anum_ag_graph_name, BTEqualStrategyNumber,
                 F_NAMEEQ, NameGetDatum(graph_name));
 
-    ag_graph = heap_open(ag_graph_relation_id(), RowExclusiveLock);
+    ag_graph = table_open(ag_graph_relation_id(), RowExclusiveLock);
     scan_desc = systable_beginscan(ag_graph, ag_graph_name_index_id(), true,
                                    NULL, 1, scan_keys);
 
@@ -97,7 +101,7 @@ void delete_graph(const Name graph_name)
     CatalogTupleDelete(ag_graph, &tuple->t_self);
 
     systable_endscan(scan_desc);
-    heap_close(ag_graph, RowExclusiveLock);
+    table_close(ag_graph, RowExclusiveLock);
 }
 
 // Function updates graph name in ag_graph table.
@@ -116,7 +120,7 @@ void update_graph_name(const Name graph_name, const Name new_name)
     ScanKeyInit(&scan_keys[0], Anum_ag_graph_name, BTEqualStrategyNumber,
                 F_NAMEEQ, NameGetDatum(graph_name));
 
-    ag_graph = heap_open(ag_graph_relation_id(), RowExclusiveLock);
+    ag_graph = table_open(ag_graph_relation_id(), RowExclusiveLock);
     scan_desc = systable_beginscan(ag_graph, ag_graph_name_index_id(), true,
                                    NULL, 1, scan_keys);
 
@@ -146,7 +150,7 @@ void update_graph_name(const Name graph_name, const Name new_name)
 
     // end scan and close ag_graph
     systable_endscan(scan_desc);
-    heap_close(ag_graph, RowExclusiveLock);
+    table_close(ag_graph, RowExclusiveLock);
 }
 
 Oid get_graph_oid(const char *graph_name)

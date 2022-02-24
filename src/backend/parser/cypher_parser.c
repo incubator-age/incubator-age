@@ -67,11 +67,10 @@ int cypher_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, ag_scanner_t scanner)
         break;
     case AG_TOKEN_IDENTIFIER:
     {
-        const ScanKeyword *keyword;
+        int keyword;
         char *ident;
 
-        keyword = ScanKeywordLookup(token.value.s, cypher_keywords,
-                                    num_cypher_keywords);
+        //FIXME-Ibarr: keyword = ScanKeywordLookup(token.value.s, cypher_keywords);
         if (keyword)
         {
             /*
@@ -80,7 +79,7 @@ int cypher_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, ag_scanner_t scanner)
              */
             lvalp->keyword = token.value.s;
             *llocp = token.location;
-            return keyword->value;
+            return 1;//FIXME-ibrar keyword->value;
         }
 
         ident = pstrdup(token.value.s);

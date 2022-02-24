@@ -21,6 +21,8 @@
 
 #include "access/sysattr.h"
 #include "access/htup_details.h"
+#include "access/tableam.h"
+#include "access/heapam.h"
 #include "access/xact.h"
 #include "storage/bufmgr.h"
 #include "executor/tuptable.h"
@@ -30,6 +32,7 @@
 #include "nodes/plannodes.h"
 #include "parser/parsetree.h"
 #include "parser/parse_relation.h"
+#include "access/table.h"
 #include "rewrite/rewriteHandler.h"
 #include "utils/rel.h"
 
@@ -39,6 +42,7 @@
 #include "executor/cypher_utils.h"
 #include "parser/cypher_parse_node.h"
 #include "nodes/cypher_nodes.h"
+#include "access/tableam.h"
 #include "utils/agtype.h"
 #include "utils/graphid.h"
 
@@ -82,7 +86,7 @@ static void begin_cypher_set(CustomScanState *node, EState *estate,
     ExecAssignExprContext(estate, &node->ss.ps);
 
     ExecInitScanTupleSlot(estate, &node->ss,
-                          ExecGetResultType(node->ss.ps.lefttree));
+                          ExecGetResultType(node->ss.ps.lefttree),&TTSOpsHeapTuple);
 
     if (!CYPHER_CLAUSE_IS_TERMINAL(css->flags))
     {
@@ -110,50 +114,50 @@ static HeapTuple update_entity_tuple(ResultRelInfo *resultRelInfo,
 {
     HeapTuple tuple = NULL;
     LockTupleMode lockmode;
-    HeapUpdateFailureData hufd;
-    HTSU_Result lock_result;
-    HTSU_Result update_result;
-    Buffer buffer;
+    TM_FailureData hufd;
+    TM_Result lock_result;
+    TM_Result update_result;
 
     ResultRelInfo *saved_resultRelInfo = saved_resultRelInfo;;
     estate->es_result_relation_info = resultRelInfo;
 
     lockmode = ExecUpdateLockMode(estate, resultRelInfo);
 
-    lock_result = heap_lock_tuple(resultRelInfo->ri_RelationDesc, old_tuple,
-                                  GetCurrentCommandId(false), lockmode,
-                                  LockWaitBlock, false, &buffer, &hufd);
+    lock_result = table_tuple_lock(resultRelInfo->ri_RelationDesc, &(elemTupleSlot->tts_tid), GetLatestSnapshot(),
+                                  elemTupleSlot, GetCurrentCommandId(false), lockmode,
+                                  LockWaitBlock, 0, &hufd);
 
-    if (lock_result == HeapTupleMayBeUpdated)
+    if (lock_result == TM_Updated)
     {
+        HeapTuple tuple;
         ExecStoreVirtualTuple(elemTupleSlot);
-        tuple = ExecMaterializeSlot(elemTupleSlot);
-        tuple->t_self = old_tuple->t_self;
+        ExecMaterializeSlot(elemTupleSlot);
 
-        // Check the constraints of the tuple
+        tuple = ExecFetchSlotHeapTuple(elemTupleSlot, true, NULL);
+        tuple->t_self = old_tuple->t_self;
         tuple->t_tableOid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
+
         if (resultRelInfo->ri_RelationDesc->rd_att->constr != NULL)
             ExecConstraints(resultRelInfo, elemTupleSlot, estate);
 
         // Insert the tuple normally
         update_result = heap_update(resultRelInfo->ri_RelationDesc,
+
                                     &(tuple->t_self), tuple,
                                     GetCurrentCommandId(true),
                                     estate->es_crosscheck_snapshot, true, &hufd,
                                     &lockmode);
 
-        if (update_result != HeapTupleMayBeUpdated)
+        if (update_result != TM_BeingModified)
         ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
                         errmsg("Entity failed to be updated: %i",
                                update_result)));
 
         // Insert index entries for the tuple
         if (resultRelInfo->ri_NumIndices > 0)
-            ExecInsertIndexTuples(elemTupleSlot, &(tuple->t_self), estate,
+            ExecInsertIndexTuples(elemTupleSlot, estate,
                                   false, NULL, NIL);
     }
-
-    ReleaseBuffer(buffer);
 
     estate->es_result_relation_info = saved_resultRelInfo;
 
@@ -325,7 +329,7 @@ static void process_update_list(CustomScanState *node)
         TupleTableSlot *slot;
         ResultRelInfo *resultRelInfo;
         ScanKeyData scan_keys[1];
-        HeapScanDesc scan_desc;
+        TableScanDesc scan_desc;
         bool remove_property;
         char *label_name;
         cypher_update_item *update_item;
@@ -400,7 +404,7 @@ static void process_update_list(CustomScanState *node)
                                                       css->set_list->graph_name,
                                                       label_name);
 
-        slot = ExecInitExtraTupleSlot(estate, RelationGetDescr(resultRelInfo->ri_RelationDesc));
+        slot = ExecInitExtraTupleSlot(estate, RelationGetDescr(resultRelInfo->ri_RelationDesc), &TTSOpsHeapTuple);
 
         /*
          *  Now that we have the updated properties, create a either a vertex or
@@ -463,7 +467,7 @@ static void process_update_list(CustomScanState *node)
              * Setup the scan description, with the correct snapshot and scan
              * keys.
              */
-            scan_desc = heap_beginscan(resultRelInfo->ri_RelationDesc,
+            scan_desc = table_beginscan(resultRelInfo->ri_RelationDesc,
                                        estate->es_snapshot, 1, scan_keys);
             /* Retrieve the tuple. */
             heap_tuple = heap_getnext(scan_desc, ForwardScanDirection);
@@ -478,11 +482,11 @@ static void process_update_list(CustomScanState *node)
                                                  heap_tuple);
             }
             /* close the ScanDescription */
-            heap_endscan(scan_desc);
+            table_endscan(scan_desc);
         }
 
         /* close relation */
-        heap_close(resultRelInfo->ri_RelationDesc, RowExclusiveLock);
+        table_close(resultRelInfo->ri_RelationDesc, RowExclusiveLock);
 
         /* increment loop index */
         lidx++;

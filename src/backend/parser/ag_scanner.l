@@ -1048,9 +1048,10 @@ static void _numstr_to_decimal(const char *numstr, const int base, strbuf *sb)
     // convert the collected remainders to a string, starting from the last one
     for (i = nremainders - 1; i >= 0; i--)
     {
-        char buf[ndigits_per_remainder];
         int buf_i;
         uint32 tmp;
+        //char buf[ndigits_per_remainder];
+        char buf[9];
 
         buf_i = ndigits_per_remainder;
 
