@@ -81,7 +81,7 @@ static Constraint *build_not_null_constraint(void);
 static Constraint *build_properties_default(void);
 static void alter_sequence_owned_by_for_label(RangeVar *seq_range_var,
                                               char *rel_name);
-static int32 get_new_label_id(Oid graph_oid, Oid nsp_id);
+static int32 get_new_label_id(uint32 graph_id, Oid nsp_id);
 static void change_label_id_default(char *graph_name, char *label_name,
                                     char *schema_name, char *seq_name,
                                     Oid relid);
@@ -89,11 +89,8 @@ static void change_label_id_default(char *graph_name, char *label_name,
 // drop
 static void remove_relation(List *qname);
 static void range_var_callback_for_remove_relation(const RangeVar *rel,
-                                                   Oid rel_oid,
-                                                   Oid odl_rel_oid,
+                                                   Oid rel_oid, Oid odl_rel_oid,
                                                    void *arg);
-
-
 
 PG_FUNCTION_INFO_V1(create_vlabel);
 
@@ -105,14 +102,14 @@ PG_FUNCTION_INFO_V1(create_vlabel);
  * 2. Label Name
  * Function will create a vertex label
  * Function returns an error if graph or label names or not provided
-*/
+ */
 
 Datum create_vlabel(PG_FUNCTION_ARGS)
 {
     char *graph;
     Name graph_name;
     char *graph_name_str;
-    Oid graph_oid;
+    uint32 graph_id;
     List *parent;
 
     RangeVar *rv;
@@ -125,14 +122,14 @@ Datum create_vlabel(PG_FUNCTION_ARGS)
     if (PG_ARGISNULL(0))
     {
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                errmsg("graph name must not be NULL")));
+                        errmsg("graph name must not be NULL")));
     }
 
     // checking if user has not provided the label name
     if (PG_ARGISNULL(1))
     {
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                errmsg("label name must not be NULL")));
+                        errmsg("label name must not be NULL")));
     }
 
     graph_name = PG_GETARG_NAME(0);
@@ -146,24 +143,23 @@ Datum create_vlabel(PG_FUNCTION_ARGS)
     {
         ereport(ERROR,
                 (errcode(ERRCODE_UNDEFINED_SCHEMA),
-                        errmsg("graph \"%s\" does not exist.", graph_name_str)));
+                 errmsg("graph \"%s\" does not exist.", graph_name_str)));
     }
 
-    graph_oid = get_graph_oid(graph_name_str);
+    graph_id = get_graph_id(graph_name_str);
 
     // Check if label with the input name already exists
-    if (label_exists(label_name_str, graph_oid))
+    if (label_exists(label_name_str, graph_id))
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_UNDEFINED_SCHEMA),
+        ereport(ERROR, (errcode(ERRCODE_UNDEFINED_SCHEMA),
                         errmsg("label \"%s\" already exists", label_name_str)));
     }
 
-    //Create the default label tables
+    // Create the default label tables
     graph = graph_name->data;
     label = label_name->data;
 
-    rv = get_label_range_var(graph, graph_oid, AG_DEFAULT_LABEL_VERTEX);
+    rv = get_label_range_var(graph, graph_id, AG_DEFAULT_LABEL_VERTEX);
 
     parent = list_make1(rv);
 
@@ -185,14 +181,14 @@ PG_FUNCTION_INFO_V1(create_elabel);
  * 2. Label Name
  * Function will create an edge label
  * Function returns an error if graph or label names or not provided
-*/
+ */
 
 Datum create_elabel(PG_FUNCTION_ARGS)
 {
     char *graph;
     Name graph_name;
     char *graph_name_str;
-    Oid graph_oid;
+    uint32 graph_id;
     List *parent;
 
     RangeVar *rv;
@@ -205,14 +201,14 @@ Datum create_elabel(PG_FUNCTION_ARGS)
     if (PG_ARGISNULL(0))
     {
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                errmsg("graph name must not be NULL")));
+                        errmsg("graph name must not be NULL")));
     }
 
     // checking if user has not provided the label name
     if (PG_ARGISNULL(1))
     {
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                errmsg("label name must not be NULL")));
+                        errmsg("label name must not be NULL")));
     }
 
     graph_name = PG_GETARG_NAME(0);
@@ -226,24 +222,23 @@ Datum create_elabel(PG_FUNCTION_ARGS)
     {
         ereport(ERROR,
                 (errcode(ERRCODE_UNDEFINED_SCHEMA),
-                        errmsg("graph \"%s\" does not exist.", graph_name_str)));
+                 errmsg("graph \"%s\" does not exist.", graph_name_str)));
     }
 
-    graph_oid = get_graph_oid(graph_name_str);
+    graph_id = get_graph_id(graph_name_str);
 
     // Check if label with the input name already exists
-    if (label_exists(label_name_str, graph_oid))
+    if (label_exists(label_name_str, graph_id))
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_UNDEFINED_SCHEMA),
+        ereport(ERROR, (errcode(ERRCODE_UNDEFINED_SCHEMA),
                         errmsg("label \"%s\" already exists", label_name_str)));
     }
 
-    //Create the default label tables
+    // Create the default label tables
     graph = graph_name->data;
     label = label_name->data;
 
-    rv = get_label_range_var(graph, graph_oid, AG_DEFAULT_LABEL_EDGE);
+    rv = get_label_range_var(graph, graph_id, AG_DEFAULT_LABEL_EDGE);
 
     parent = list_make1(rv);
     create_label(graph, label, LABEL_TYPE_EDGE, parent);
@@ -259,11 +254,11 @@ Datum create_elabel(PG_FUNCTION_ARGS)
  * new table and sequence. Returns the oid from the new tuple in
  * ag_catalog.ag_label.
  */
-Oid create_label(char *graph_name, char *label_name, char label_type,
-                 List *parents)
+void create_label(char *graph_name, char *label_name, char label_type,
+                  List *parents)
 {
     graph_cache_data *cache_data;
-    Oid graph_oid;
+    uint32 graph_id;
     Oid nsp_id;
     char *schema_name;
     char *rel_name;
@@ -271,7 +266,6 @@ Oid create_label(char *graph_name, char *label_name, char label_type,
     RangeVar *seq_range_var;
     int32 label_id;
     Oid relation_id;
-    Oid label_oid;
 
     cache_data = search_graph_name_cache(graph_name);
     if (!cache_data)
@@ -279,8 +273,9 @@ Oid create_label(char *graph_name, char *label_name, char label_type,
         ereport(ERROR, (errcode(ERRCODE_UNDEFINED_SCHEMA),
                         errmsg("graph \"%s\" does not exist", graph_name)));
     }
-    graph_oid = cache_data->oid;
-    nsp_id = cache_data->namespace;
+
+    graph_id = cache_data->id;
+    nsp_id = cache_data->nspid;
 
     // create a sequence for the new label to generate unique IDs for vertices
     schema_name = get_namespace_name(nsp_id);
@@ -298,21 +293,20 @@ Oid create_label(char *graph_name, char *label_name, char label_type,
 
     // If a label has parents, switch the parents id default, with its own.
     if (list_length(parents) != 0)
+    {
         change_label_id_default(graph_name, label_name, schema_name, seq_name,
                                 relation_id);
+    }
 
     // associate the sequence with the "id" column
     alter_sequence_owned_by_for_label(seq_range_var, rel_name);
 
     // get a new "id" for the new label
-    label_id = get_new_label_id(graph_oid, nsp_id);
+    label_id = get_new_label_id(graph_id, nsp_id);
 
-    label_oid = insert_label(label_name, graph_oid, label_id, label_type,
-                             relation_id);
+    insert_label(label_name, graph_id, label_id, label_type, relation_id);
 
     CommandCounterIncrement();
-
-    return label_oid;
 }
 
 // CREATE TABLE `schema_name`.`rel_name` (
@@ -340,16 +334,24 @@ static void create_table_for_label(char *graph_name, char *label_name,
      * inheritance system.
      */
     if (list_length(parents) != 0)
+    {
         create_stmt->tableElts = NIL;
+    }
     else if (label_type == LABEL_TYPE_EDGE)
+    {
         create_stmt->tableElts = create_edge_table_elements(
             graph_name, label_name, schema_name, rel_name, seq_name);
+    }
     else if (label_type == LABEL_TYPE_VERTEX)
+    {
         create_stmt->tableElts = create_vertex_table_elements(
             graph_name, label_name, schema_name, rel_name, seq_name);
+    }
     else
+    {
         ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
                         errmsg("undefined label type \'%c\'", label_type)));
+    }
 
     create_stmt->inhRelations = parents;
     create_stmt->partbound = NULL;
@@ -363,13 +365,12 @@ static void create_table_for_label(char *graph_name, char *label_name,
     wrapper = makeNode(PlannedStmt);
     wrapper->commandType = CMD_UTILITY;
     wrapper->canSetTag = false;
-    wrapper->utilityStmt = (Node *)create_stmt;
+    wrapper->utilityStmt = (Node *) create_stmt;
     wrapper->stmt_location = -1;
     wrapper->stmt_len = 0;
 
     ProcessUtility(wrapper, "(generated CREATE TABLE command)",
-                   PROCESS_UTILITY_SUBCOMMAND, NULL, NULL, None_Receiver,
-                   NULL);
+                   PROCESS_UTILITY_SUBCOMMAND, NULL, NULL, None_Receiver, NULL);
     // CommandCounterIncrement() is called in ProcessUtility()
 }
 
@@ -452,7 +453,7 @@ static void create_sequence_for_label(RangeVar *seq_range_var)
     seq_stmt = makeNode(CreateSeqStmt);
     seq_stmt->sequence = seq_range_var;
     pg_lltoa(ENTRY_ID_MAX, buf);
-    maxvalue = makeDefElem("maxvalue", (Node *)makeFloat(pstrdup(buf)), -1);
+    maxvalue = makeDefElem("maxvalue", (Node *) makeFloat(pstrdup(buf)), -1);
     seq_stmt->options = list_make1(maxvalue);
     seq_stmt->ownerId = InvalidOid;
     seq_stmt->for_identity = false;
@@ -516,7 +517,7 @@ static FuncCall *build_id_default_func_expr(char *graph_name, char *label_name,
     label_id_func_args = list_make2(graph_name_const, label_name_const);
     label_id_func = makeFuncCall(label_id_func_name, label_id_func_args, -1);
 
-    //Build a node that will get the next val from the label's sequence
+    // Build a node that will get the next val from the label's sequence
     nextval_func_name = SystemFuncName("nextval");
     qualified_seq_name = quote_qualified_identifier(schema_name, seq_name);
     qualified_seq_name_const = makeNode(A_Const);
@@ -525,7 +526,7 @@ static FuncCall *build_id_default_func_expr(char *graph_name, char *label_name,
     qualified_seq_name_const->location = -1;
     regclass_cast = makeNode(TypeCast);
     regclass_cast->typeName = SystemTypeName("regclass");
-    regclass_cast->arg = (Node *)qualified_seq_name_const;
+    regclass_cast->arg = (Node *) qualified_seq_name_const;
     regclass_cast->location = -1;
     nextval_func_args = list_make1(regclass_cast);
     nextval_func = makeFuncCall(nextval_func_name, nextval_func_args, -1);
@@ -557,7 +558,7 @@ static Constraint *build_id_default(char *graph_name, char *label_name,
     id_default = makeNode(Constraint);
     id_default->contype = CONSTR_DEFAULT;
     id_default->location = -1;
-    id_default->raw_expr = (Node *)graphid_func;
+    id_default->raw_expr = (Node *) graphid_func;
     id_default->cooked_expr = NULL;
 
     return id_default;
@@ -590,7 +591,7 @@ static Constraint *build_properties_default(void)
     props_default = makeNode(Constraint);
     props_default->contype = CONSTR_DEFAULT;
     props_default->location = -1;
-    props_default->raw_expr = (Node *)func;
+    props_default->raw_expr = (Node *) func;
     props_default->cooked_expr = NULL;
 
     return props_default;
@@ -625,7 +626,7 @@ static void change_label_id_default(char *graph_name, char *label_name,
     tbl_cmd = makeNode(AlterTableCmd);
     tbl_cmd->subtype = AT_ColumnDefault;
     tbl_cmd->name = "id";
-    tbl_cmd->def = (Node *)func_call;
+    tbl_cmd->def = (Node *) func_call;
 
     tbl_stmt->cmds = list_make1(tbl_cmd);
 
@@ -652,7 +653,7 @@ static void alter_sequence_owned_by_for_label(RangeVar *seq_range_var,
     schema_name = seq_range_var->schemaname;
     id = list_make3(makeString(schema_name), makeString(rel_name),
                     makeString("id"));
-    owned_by = makeDefElem("owned_by", (Node *)id, -1);
+    owned_by = makeDefElem("owned_by", (Node *) id, -1);
     seq_stmt->options = list_make1(owned_by);
     seq_stmt->for_identity = false;
     seq_stmt->missing_ok = false;
@@ -661,7 +662,7 @@ static void alter_sequence_owned_by_for_label(RangeVar *seq_range_var,
     CommandCounterIncrement();
 }
 
-static int32 get_new_label_id(Oid graph_oid, Oid nsp_id)
+static int32 get_new_label_id(uint32 graph_id, Oid nsp_id)
 {
     Oid seq_id;
     int cnt;
@@ -670,20 +671,22 @@ static int32 get_new_label_id(Oid graph_oid, Oid nsp_id)
     seq_id = get_relname_relid(LABEL_ID_SEQ_NAME, nsp_id);
     if (!OidIsValid(seq_id))
     {
-        ereport(ERROR, (errcode(ERRCODE_UNDEFINED_TABLE),
-                        errmsg("sequence \"%s\" does not exists",
-                               LABEL_ID_SEQ_NAME)));
+        ereport(ERROR,
+                (errcode(ERRCODE_UNDEFINED_TABLE),
+                 errmsg("sequence \"%s\" does not exists", LABEL_ID_SEQ_NAME)));
     }
 
     for (cnt = LABEL_ID_MIN; cnt <= LABEL_ID_MAX; cnt++)
     {
-        int64 label_id;
+        int32 label_id;
 
         // the data type of the sequence is integer (int4)
-        label_id = nextval_internal(seq_id, true);
+        label_id = (int32) nextval_internal(seq_id, true);
         Assert(label_id_is_valid(label_id));
-        if (!label_id_exists(graph_oid, label_id))
-            return (int32)label_id;
+        if (!label_id_exists(graph_id, label_id))
+        {
+            return (int32) label_id;
+        }
     }
 
     ereport(ERROR, (errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -702,7 +705,7 @@ Datum drop_label(PG_FUNCTION_ARGS)
     bool force;
     char *graph_name_str;
     graph_cache_data *cache_data;
-    Oid graph_oid;
+    uint32 graph_id;
     Oid nsp_id;
     char *label_name_str;
     Oid label_relation;
@@ -715,11 +718,13 @@ Datum drop_label(PG_FUNCTION_ARGS)
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                         errmsg("graph name must not be NULL")));
     }
+
     if (PG_ARGISNULL(1))
     {
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                         errmsg("label name must not be NULL")));
     }
+
     graph_name = PG_GETARG_NAME(0);
     label_name = PG_GETARG_NAME(1);
     force = PG_GETARG_BOOL(2);
@@ -728,20 +733,19 @@ Datum drop_label(PG_FUNCTION_ARGS)
     cache_data = search_graph_name_cache(graph_name_str);
     if (!cache_data)
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_UNDEFINED_SCHEMA),
-                 errmsg("graph \"%s\" does not exist", graph_name_str)));
+        ereport(ERROR, (errcode(ERRCODE_UNDEFINED_SCHEMA),
+                        errmsg("graph \"%s\" does not exist", graph_name_str)));
     }
-    graph_oid = cache_data->oid;
-    nsp_id = cache_data->namespace;
+
+    graph_id = cache_data->id;
+    nsp_id = cache_data->nspid;
 
     label_name_str = NameStr(*label_name);
-    label_relation = get_label_relation(label_name_str, graph_oid);
+    label_relation = get_label_relation(label_name_str, graph_id);
     if (!OidIsValid(label_relation))
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_UNDEFINED_TABLE),
-                 errmsg("label \"%s\" does not exist", label_name_str)));
+        ereport(ERROR, (errcode(ERRCODE_UNDEFINED_TABLE),
+                        errmsg("label \"%s\" does not exist", label_name_str)));
     }
 
     if (force)
@@ -781,8 +785,7 @@ static void remove_relation(List *qname)
     AcceptInvalidationMessages();
 
     rel = makeRangeVarFromNameList(qname);
-    rel_oid = RangeVarGetRelidExtended(rel, AccessExclusiveLock,
-                                       RVR_MISSING_OK,
+    rel_oid = RangeVarGetRelidExtended(rel, AccessExclusiveLock, RVR_MISSING_OK,
                                        range_var_callback_for_remove_relation,
                                        NULL);
 
@@ -811,8 +814,7 @@ static void remove_relation(List *qname)
 
 // See RangeVarCallbackForDropRelation() for more details.
 static void range_var_callback_for_remove_relation(const RangeVar *rel,
-                                                   Oid rel_oid,
-                                                   Oid odl_rel_oid,
+                                                   Oid rel_oid, Oid odl_rel_oid,
                                                    void *arg)
 {
     /*
@@ -826,7 +828,9 @@ static void range_var_callback_for_remove_relation(const RangeVar *rel,
     // partParentOid is always InvalidOid
 
     if (!OidIsValid(rel_oid))
+    {
         return;
+    }
 
     // classform->relkind is always RELKIND_RELATION
 

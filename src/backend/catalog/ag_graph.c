@@ -25,11 +25,12 @@
 #include "access/htup_details.h"
 #include "access/skey.h"
 #include "access/stratnum.h"
-#include "catalog/catalog.h"
 #include "catalog/indexing.h"
+#include "catalog/namespace.h"
+#include "nodes/makefuncs.h"
 #include "storage/lockdefs.h"
-#include "utils/builtins.h"
 #include "utils/fmgroids.h"
+#include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
 #include "utils/rel.h"
 #include "utils/relcache.h"
@@ -40,27 +41,29 @@
 static Oid get_graph_namespace(const char *graph_name);
 
 // INSERT INTO ag_catalog.ag_graph VALUES (graph_name, nsp_id)
-Oid insert_graph(const Name graph_name, const Oid nsp_id)
+void insert_graph(const Name graph_name, const Oid nsp_id)
 {
-    Datum     values[Natts_ag_graph];
-    bool      nulls[Natts_ag_graph] = {false};
-    Relation  ag_graph;
+    Datum values[Natts_ag_graph];
+    bool nulls[Natts_ag_graph];
+    Relation ag_graph;
     HeapTuple tuple;
-    Oid       graph_oid;
+
+    RangeVar *sequence = makeRangeVar("ag_catalog", "_ag_graph_id_seq", -1);
 
     AssertArg(graph_name);
     AssertArg(OidIsValid(nsp_id));
 
     ag_graph = table_open(ag_graph_relation_id(), RowExclusiveLock);
+    values[Anum_ag_graph_id - 1] = DatumGetInt64(DirectFunctionCall1(
+        nextval_oid,
+        ObjectIdGetDatum(RangeVarGetRelid(sequence, NoLock, false))));
+    nulls[Anum_ag_graph_id - 1] = false;
 
-    graph_oid = GetNewOidWithIndex(ag_graph,
-                                  ag_graph_name_index_id(),
-                                  Anum_ag_graph_oid);
-
-    values[Anum_ag_graph_oid - 1] = graph_oid;
     values[Anum_ag_graph_name - 1] = NameGetDatum(graph_name);
-    values[Anum_ag_graph_namespace - 1] = ObjectIdGetDatum(nsp_id);
+    nulls[Anum_ag_graph_name - 1] = false;
 
+    values[Anum_ag_graph_namespace - 1] = ObjectIdGetDatum(nsp_id);
+    nulls[Anum_ag_graph_namespace - 1] = false;
 
     tuple = heap_form_tuple(RelationGetDescr(ag_graph), values, nulls);
 
@@ -71,8 +74,6 @@ Oid insert_graph(const Name graph_name, const Oid nsp_id)
     CatalogTupleInsert(ag_graph, tuple);
 
     table_close(ag_graph, RowExclusiveLock);
-
-    return graph_oid;
 }
 
 // DELETE FROM ag_catalog.ag_graph WHERE name = graph_name
@@ -153,15 +154,19 @@ void update_graph_name(const Name graph_name, const Name new_name)
     table_close(ag_graph, RowExclusiveLock);
 }
 
-Oid get_graph_oid(const char *graph_name)
+uint32 get_graph_id(const char *graph_name)
 {
     graph_cache_data *cache_data;
 
     cache_data = search_graph_name_cache(graph_name);
     if (cache_data)
-        return cache_data->oid;
+    {
+        return cache_data->id;
+    }
     else
+    {
         return InvalidOid;
+    }
 }
 
 static Oid get_graph_namespace(const char *graph_name)
@@ -175,7 +180,7 @@ static Oid get_graph_namespace(const char *graph_name)
                         errmsg("graph \"%s\" does not exist", graph_name)));
     }
 
-    return cache_data->namespace;
+    return cache_data->nspid;
 }
 
 char *get_graph_namespace_name(const char *graph_name)

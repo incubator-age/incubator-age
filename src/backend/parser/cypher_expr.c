@@ -6,20 +6,24 @@
  *
  * Portions Copyright (c) 1994, The Regents of the University of California
  *
- * Permission to use, copy, modify, and distribute this software and its documentation for any purpose,
- * without fee, and without a written agreement is hereby granted, provided that the above copyright notice
- * and this paragraph and the following two paragraphs appear in all copies.
+ * Permission to use, copy, modify, and distribute this software and its
+ * documentation for any purpose, without fee, and without a written agreement
+ * is hereby granted, provided that the above copyright notice and this
+ * paragraph and the following two paragraphs appear in all copies.
  *
- * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS,
- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY
- * OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
+ * DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING
+ * LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION,
+ * EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  *
- * THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING,
- * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ * FITNESS FOR A PARTICULAR PURPOSE.
  *
- * THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA
- * HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF
+ * CALIFORNIA HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+ * ENHANCEMENTS, OR MODIFICATIONS.
  */
 
 #include "postgres.h"
@@ -31,21 +35,19 @@
 #include "nodes/nodes.h"
 #include "nodes/parsenodes.h"
 #include "nodes/value.h"
-#include "optimizer/tlist.h"
+#include "parser/cypher_clause.h"
 #include "parser/parse_coerce.h"
 #include "parser/parse_collate.h"
-#include "parser/parse_expr.h"
 #include "parser/parse_func.h"
-#include "parser/cypher_clause.h"
 #include "parser/parse_node.h"
 #include "parser/parse_oper.h"
 #include "parser/parse_relation.h"
 #include "utils/builtins.h"
+#include "utils/float.h"
 #include "utils/int8.h"
 #include "utils/lsyscache.h"
 #include "utils/syscache.h"
 
-#include "commands/label_commands.h"
 #include "nodes/cypher_nodes.h"
 #include "parser/cypher_expr.h"
 #include "parser/cypher_parse_node.h"
@@ -78,14 +80,12 @@ static Node *transform_AEXPR_IN(cypher_parsestate *cpstate, A_Expr *a);
 static Node *transform_cypher_param(cypher_parsestate *cpstate,
                                     cypher_param *cp);
 static Node *transform_cypher_map(cypher_parsestate *cpstate, cypher_map *cm);
-static Node *transform_cypher_list(cypher_parsestate *cpstate,
-                                   cypher_list *cl);
+static Node *transform_cypher_list(cypher_parsestate *cpstate, cypher_list *cl);
 static Node *transform_cypher_string_match(cypher_parsestate *cpstate,
                                            cypher_string_match *csm_node);
 static Node *transform_cypher_typecast(cypher_parsestate *cpstate,
                                        cypher_typecast *ctypecast);
-static Node *transform_CaseExpr(cypher_parsestate *cpstate,
-                                    CaseExpr *cexpr);
+static Node *transform_CaseExpr(cypher_parsestate *cpstate, CaseExpr *cexpr);
 static Node *transform_CoalesceExpr(cypher_parsestate *cpstate,
                                     CoalesceExpr *cexpr);
 static Node *transform_SubLink(cypher_parsestate *cpstate, SubLink *sublink);
@@ -97,7 +97,7 @@ static Node *transform_WholeRowRef(ParseState *pstate, RangeTblEntry *rte,
 Node *transform_cypher_expr(cypher_parsestate *cpstate, Node *expr,
                             ParseExprKind expr_kind)
 {
-    ParseState *pstate = (ParseState *)cpstate;
+    ParseState *pstate = (ParseState *) cpstate;
     ParseExprKind old_expr_kind;
     Node *result;
 
@@ -117,7 +117,9 @@ static Node *transform_cypher_expr_recurse(cypher_parsestate *cpstate,
                                            Node *expr)
 {
     if (!expr)
+    {
         return NULL;
+    }
 
     // guard against stack overflow due to overly complex expressions
     check_stack_depth();
@@ -125,14 +127,13 @@ static Node *transform_cypher_expr_recurse(cypher_parsestate *cpstate,
     switch (nodeTag(expr))
     {
     case T_A_Const:
-        return transform_A_Const(cpstate, (A_Const *)expr);
+        return transform_A_Const(cpstate, (A_Const *) expr);
     case T_ColumnRef:
-        return transform_ColumnRef(cpstate, (ColumnRef *)expr);
+        return transform_ColumnRef(cpstate, (ColumnRef *) expr);
     case T_A_Indirection:
-        return transform_A_Indirection(cpstate, (A_Indirection *)expr);
-    case T_A_Expr:
-    {
-        A_Expr *a = (A_Expr *)expr;
+        return transform_A_Indirection(cpstate, (A_Indirection *) expr);
+    case T_A_Expr: {
+        A_Expr *a = (A_Expr *) expr;
 
         switch (a->kind)
         {
@@ -141,19 +142,18 @@ static Node *transform_cypher_expr_recurse(cypher_parsestate *cpstate,
         case AEXPR_IN:
             return transform_AEXPR_IN(cpstate, a);
         default:
-            ereport(ERROR, (errmsg_internal("unrecognized A_Expr kind: %d",
-                                            a->kind)));
+            ereport(ERROR,
+                    (errmsg_internal("unrecognized A_Expr kind: %d", a->kind)));
         }
     }
     case T_BoolExpr:
-        return transform_BoolExpr(cpstate, (BoolExpr *)expr);
-    case T_NullTest:
-    {
-        NullTest *n = (NullTest *)expr;
+        return transform_BoolExpr(cpstate, (BoolExpr *) expr);
+    case T_NullTest: {
+        NullTest *n = (NullTest *) expr;
 
-        n->arg = (Expr *)transform_cypher_expr_recurse(cpstate,
-                                                       (Node *)n->arg);
-        n->argisrow = type_is_rowtype(exprType((Node *)n->arg));
+        n->arg = (Expr *) transform_cypher_expr_recurse(cpstate,
+                                                        (Node *) n->arg);
+        n->argisrow = type_is_rowtype(exprType((Node *) n->arg));
 
         return expr;
     }
@@ -165,45 +165,65 @@ static Node *transform_cypher_expr_recurse(cypher_parsestate *cpstate,
         return transform_CoalesceExpr(cpstate, (CoalesceExpr *) expr);
     case T_ExtensibleNode:
         if (is_ag_node(expr, cypher_bool_const))
+        {
             return transform_cypher_bool_const(cpstate,
-                                               (cypher_bool_const *)expr);
+                                               (cypher_bool_const *) expr);
+        }
+
         if (is_ag_node(expr, cypher_integer_const))
-            return transform_cypher_integer_const(cpstate,
-                                                  (cypher_integer_const *)expr);
+        {
+            return transform_cypher_integer_const(
+                cpstate, (cypher_integer_const *) expr);
+        }
+
         if (is_ag_node(expr, cypher_param))
-            return transform_cypher_param(cpstate, (cypher_param *)expr);
+        {
+            return transform_cypher_param(cpstate, (cypher_param *) expr);
+        }
+
         if (is_ag_node(expr, cypher_map))
-            return transform_cypher_map(cpstate, (cypher_map *)expr);
+        {
+            return transform_cypher_map(cpstate, (cypher_map *) expr);
+        }
+
         if (is_ag_node(expr, cypher_list))
-            return transform_cypher_list(cpstate, (cypher_list *)expr);
+        {
+            return transform_cypher_list(cpstate, (cypher_list *) expr);
+        }
+
         if (is_ag_node(expr, cypher_string_match))
+        {
             return transform_cypher_string_match(cpstate,
-                                                 (cypher_string_match *)expr);
+                                                 (cypher_string_match *) expr);
+        }
+
         if (is_ag_node(expr, cypher_typecast))
-            return transform_cypher_typecast(cpstate,
-                                             (cypher_typecast *)expr);
+        {
+            return transform_cypher_typecast(cpstate, (cypher_typecast *) expr);
+        }
+
         ereport(ERROR,
                 (errmsg_internal("unrecognized ExtensibleNode: %s",
-                                 ((ExtensibleNode *)expr)->extnodename)));
+                                 ((ExtensibleNode *) expr)->extnodename)));
         return NULL;
     case T_FuncCall:
-        return transform_FuncCall(cpstate, (FuncCall *)expr);
+        return transform_FuncCall(cpstate, (FuncCall *) expr);
     case T_SubLink:
-        return transform_SubLink(cpstate, (SubLink *)expr);
+        return transform_SubLink(cpstate, (SubLink *) expr);
         break;
     default:
-        ereport(ERROR, (errmsg_internal("unrecognized node type: %d",
-                                        nodeTag(expr))));
+        ereport(ERROR,
+                (errmsg_internal("unrecognized node type: %d", nodeTag(expr))));
     }
     return NULL;
 }
 
 static Node *transform_A_Const(cypher_parsestate *cpstate, A_Const *ac)
 {
-    ParseState *pstate = (ParseState *)cpstate;
+    ParseState *pstate = (ParseState *) cpstate;
     ParseCallbackState pcbstate;
     Value *v = &ac->val;
-    Datum d = (Datum)0;
+    Datum d = (Datum) 0;
     bool is_null = false;
     Const *c;
 
@@ -211,25 +231,24 @@ static Node *transform_A_Const(cypher_parsestate *cpstate, A_Const *ac)
     switch (nodeTag(v))
     {
     case T_Integer:
-        d = integer_to_agtype((int64)intVal(v));
+        d = integer_to_agtype((int64) intVal(v));
         break;
-    case T_Float:
+    case T_Float: {
+        char *n = strVal(v);
+        int64 i;
+
+        if (scanint8(n, true, &i))
         {
-            char *n = strVal(v);
-            int64 i;
-
-            if (scanint8(n, true, &i))
-            {
-                d = integer_to_agtype(i);
-            }
-            else
-            {
-                float8 f = float8in_internal(n, NULL, "double precision", n);
-
-                d = float_to_agtype(f);
-            }
+            d = integer_to_agtype(i);
         }
-        break;
+        else
+        {
+            float8 f = float8in_internal(n, NULL, "double precision", n);
+
+            d = float_to_agtype(f);
+        }
+    }
+    break;
     case T_String:
         d = string_to_agtype(strVal(v));
         break;
@@ -246,7 +265,7 @@ static Node *transform_A_Const(cypher_parsestate *cpstate, A_Const *ac)
     // typtypmod, typcollation, typlen, and typbyval of agtype are hard-coded.
     c = makeConst(AGTYPEOID, -1, InvalidOid, -1, d, is_null, false);
     c->location = ac->location;
-    return (Node *)c;
+    return (Node *) c;
 }
 
 /*
@@ -271,15 +290,15 @@ static Node *transform_WholeRowRef(ParseState *pstate, RangeTblEntry *rte,
      * historically.  One argument for it is that "rel" and "rel.*" mean the
      * same thing for composite relations, so why not for scalar functions...
      */
-     result = makeWholeRowVar(rte, vnum, sublevels_up, true);
+    result = makeWholeRowVar(rte, vnum, sublevels_up, true);
 
-     /* location is not filled in by makeWholeRowVar */
-     result->location = location;
+    /* location is not filled in by makeWholeRowVar */
+    result->location = location;
 
-     /* mark relation as requiring whole-row SELECT access */
-     markVarForSelectPriv(pstate, result, rte);
+    /* mark relation as requiring whole-row SELECT access */
+    markVarForSelectPriv(pstate, result, rte);
 
-     return (Node *)result;
+    return (Node *) result;
 }
 
 /*
@@ -288,7 +307,7 @@ static Node *transform_WholeRowRef(ParseState *pstate, RangeTblEntry *rte,
  */
 static Node *transform_ColumnRef(cypher_parsestate *cpstate, ColumnRef *cref)
 {
-    ParseState *pstate = (ParseState *)cpstate;
+    ParseState *pstate = (ParseState *) cpstate;
     RangeTblEntry *rte = NULL;
     Node *field1 = NULL;
     Node *field2 = NULL;
@@ -300,137 +319,127 @@ static Node *transform_ColumnRef(cypher_parsestate *cpstate, ColumnRef *cref)
 
     switch (list_length(cref->fields))
     {
-        case 1:
+    case 1: {
+        field1 = (Node *) linitial(cref->fields);
+
+        Assert(IsA(field1, String));
+        colname = strVal(field1);
+
+        /* Try to identify as an unqualified column */
+        node = colNameToVar(pstate, colname, false, cref->location);
+
+        if (node == NULL)
+        {
+            /*
+             * Not known as a column of any range-table entry.
+             * Try to find the name as a relation.  Note that only
+             * relations already entered into the rangetable will be
+             * recognized.
+             *
+             * This is a hack for backwards compatibility with
+             * PostQUEL-inspired syntax.  The preferred form now is
+             * "rel.*".
+             */
+            rte = refnameRangeTblEntry(pstate, NULL, colname, cref->location,
+                                       &levels_up);
+            if (rte)
             {
-                field1 = (Node*)linitial(cref->fields);
-
-                Assert(IsA(field1, String));
-                colname = strVal(field1);
-
-                /* Try to identify as an unqualified column */
-                node = colNameToVar(pstate, colname, false, cref->location);
-
-                if (node == NULL)
-                {
-                    /*
-                     * Not known as a column of any range-table entry.
-                     * Try to find the name as a relation.  Note that only
-                     * relations already entered into the rangetable will be
-                     * recognized.
-                     *
-                     * This is a hack for backwards compatibility with
-                     * PostQUEL-inspired syntax.  The preferred form now is
-                     * "rel.*".
-                     */
-                    rte = refnameRangeTblEntry(pstate, NULL, colname,
-                                               cref->location, &levels_up);
-                    if (rte)
-                    {
-                        node = transform_WholeRowRef(pstate, rte,
-                                                     cref->location);
-                    }
-                    else
-                    {
-                        ereport(ERROR,
-                                (errcode(ERRCODE_UNDEFINED_COLUMN),
-                                 errmsg("could not find rte for %s", colname),
-                                 parser_errposition(pstate, cref->location)));
-                    }
-
-                    if (node == NULL)
-                    {
-                        ereport(ERROR,
-                                (errcode(ERRCODE_DATA_EXCEPTION),
-                                 errmsg("unable to transform whole row for %s",
-                                         colname),
-                                 parser_errposition(pstate, cref->location)));
-                    }
-                }
-                break;
+                node = transform_WholeRowRef(pstate, rte, cref->location);
             }
-        case 2:
+            else
             {
-                Oid inputTypeId = InvalidOid;
-                Oid targetTypeId = InvalidOid;
-
-                field1 = (Node*)linitial(cref->fields);
-                field2 = (Node*)lsecond(cref->fields);
-
-                Assert(IsA(field1, String));
-                relname = strVal(field1);
-
-                if (IsA(field2, String))
-                {
-                    colname = strVal(field2);
-                }
-
-                /* locate the referenced RTE */
-                rte = refnameRangeTblEntry(pstate, nspname, relname,
-                                           cref->location, &levels_up);
-                if (rte == NULL)
-                {
-                    ereport(ERROR,
-                            (errcode(ERRCODE_UNDEFINED_COLUMN),
-                             errmsg("could not find rte for %s.%s", relname,
-                                    colname),
-                             parser_errposition(pstate, cref->location)));
-                    break;
-                }
-
-                /*
-                 * TODO: Left in for potential future use.
-                 * Is it a whole-row reference?
-                 */
-                if (IsA(field2, A_Star))
-                {
-                    node = transform_WholeRowRef(pstate, rte, cref->location);
-                    break;
-                }
-
-                Assert(IsA(field2, String));
-
-                /* try to identify as a column of the RTE */
-                node = scanRTEForColumn(pstate, rte, colname, cref->location, 0,
-                                        NULL);
-                if (node == NULL)
-                {
-                    ereport(ERROR,
-                            (errcode(ERRCODE_UNDEFINED_COLUMN),
-                             errmsg("could not find column %s in rel %s of rte",
-                                    colname, relname),
-                             parser_errposition(pstate, cref->location)));
-                }
-
-                /* coerce it to AGTYPE if possible */
-                inputTypeId = exprType(node);
-                targetTypeId = AGTYPEOID;
-
-                if (can_coerce_type(1, &inputTypeId, &targetTypeId,
-                                    COERCION_EXPLICIT))
-                {
-                    node = coerce_type(pstate, node, inputTypeId, targetTypeId,
-                                       -1, COERCION_EXPLICIT,
-                                       COERCE_EXPLICIT_CAST, -1);
-                }
-                break;
+                ereport(ERROR, (errcode(ERRCODE_UNDEFINED_COLUMN),
+                                errmsg("could not find rte for %s", colname),
+                                parser_errposition(pstate, cref->location)));
             }
-        default:
+
+            if (node == NULL)
             {
-                ereport(ERROR,
-                        (errcode(ERRCODE_SYNTAX_ERROR),
-                         errmsg("improper qualified name (too many dotted names): %s",
-                                NameListToString(cref->fields)),
-                         parser_errposition(pstate, cref->location)));
-                break;
+                ereport(ERROR, (errcode(ERRCODE_DATA_EXCEPTION),
+                                errmsg("unable to transform whole row for %s",
+                                       colname),
+                                parser_errposition(pstate, cref->location)));
             }
+        }
+
+        break;
+    }
+    case 2: {
+        Oid inputTypeId = InvalidOid;
+        Oid targetTypeId = InvalidOid;
+
+        field1 = (Node *) linitial(cref->fields);
+        field2 = (Node *) lsecond(cref->fields);
+
+        Assert(IsA(field1, String));
+        relname = strVal(field1);
+
+        if (IsA(field2, String))
+        {
+            colname = strVal(field2);
+        }
+
+        /* locate the referenced RTE */
+        rte = refnameRangeTblEntry(pstate, nspname, relname, cref->location,
+                                   &levels_up);
+        if (rte == NULL)
+        {
+            ereport(ERROR,
+                    (errcode(ERRCODE_UNDEFINED_COLUMN),
+                     errmsg("could not find rte for %s.%s", relname, colname),
+                     parser_errposition(pstate, cref->location)));
+            break;
+        }
+
+        /*
+         * TODO: Left in for potential future use.
+         * Is it a whole-row reference?
+         */
+        if (IsA(field2, A_Star))
+        {
+            node = transform_WholeRowRef(pstate, rte, cref->location);
+            break;
+        }
+
+        Assert(IsA(field2, String));
+
+        /* try to identify as a column of the RTE */
+        node = scanRTEForColumn(pstate, rte, colname, cref->location, 0, NULL);
+        if (node == NULL)
+        {
+            ereport(ERROR, (errcode(ERRCODE_UNDEFINED_COLUMN),
+                            errmsg("could not find column %s in rel %s of rte",
+                                   colname, relname),
+                            parser_errposition(pstate, cref->location)));
+        }
+
+        /* coerce it to AGTYPE if possible */
+        inputTypeId = exprType(node);
+        targetTypeId = AGTYPEOID;
+
+        if (can_coerce_type(1, &inputTypeId, &targetTypeId, COERCION_EXPLICIT))
+        {
+            node = coerce_type(pstate, node, inputTypeId, targetTypeId, -1,
+                               COERCION_EXPLICIT, COERCE_EXPLICIT_CAST, -1);
+        }
+
+        break;
+    }
+    default: {
+        ereport(ERROR,
+                (errcode(ERRCODE_SYNTAX_ERROR),
+                 errmsg("improper qualified name (too many dotted names): %s",
+                        NameListToString(cref->fields)),
+                 parser_errposition(pstate, cref->location)));
+        break;
+    }
     }
 
     if (node == NULL)
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_UNDEFINED_COLUMN),
-                 errmsg("variable `%s` does not exist", colname),
-                 parser_errposition(pstate, cref->location)));
+        ereport(ERROR, (errcode(ERRCODE_UNDEFINED_COLUMN),
+                        errmsg("variable `%s` does not exist", colname),
+                        parser_errposition(pstate, cref->location)));
     }
 
     return node;
@@ -438,13 +447,13 @@ static Node *transform_ColumnRef(cypher_parsestate *cpstate, ColumnRef *cref)
 
 static Node *transform_AEXPR_OP(cypher_parsestate *cpstate, A_Expr *a)
 {
-    ParseState *pstate = (ParseState *)cpstate;
+    ParseState *pstate = (ParseState *) cpstate;
     Node *last_srf = pstate->p_last_srf;
     Node *lexpr = transform_cypher_expr_recurse(cpstate, a->lexpr);
     Node *rexpr = transform_cypher_expr_recurse(cpstate, a->rexpr);
 
-    return (Node *)make_op(pstate, a->name, lexpr, rexpr, last_srf,
-                           a->location);
+    return (Node *) make_op(pstate, a->name, lexpr, rexpr, last_srf,
+                            a->location);
 }
 
 static Node *transform_AEXPR_IN(cypher_parsestate *cpstate, A_Expr *a)
@@ -465,12 +474,12 @@ static Node *transform_AEXPR_IN(cypher_parsestate *cpstate, A_Expr *a)
 
     result->location = exprLocation(a->lexpr);
 
-    return (Node *)result;
+    return (Node *) result;
 }
 
 static Node *transform_BoolExpr(cypher_parsestate *cpstate, BoolExpr *expr)
 {
-    ParseState *pstate = (ParseState *)cpstate;
+    ParseState *pstate = (ParseState *) cpstate;
     List *args = NIL;
     const char *opname;
     ListCell *la;
@@ -488,7 +497,7 @@ static Node *transform_BoolExpr(cypher_parsestate *cpstate, BoolExpr *expr)
         break;
     default:
         ereport(ERROR, (errmsg_internal("unrecognized boolop: %d",
-                                        (int)expr->boolop)));
+                                        (int) expr->boolop)));
         return NULL;
     }
 
@@ -502,13 +511,13 @@ static Node *transform_BoolExpr(cypher_parsestate *cpstate, BoolExpr *expr)
         args = lappend(args, arg);
     }
 
-    return (Node *)makeBoolExpr(expr->boolop, args, expr->location);
+    return (Node *) makeBoolExpr(expr->boolop, args, expr->location);
 }
 
 static Node *transform_cypher_bool_const(cypher_parsestate *cpstate,
                                          cypher_bool_const *bc)
 {
-    ParseState *pstate = (ParseState *)cpstate;
+    ParseState *pstate = (ParseState *) cpstate;
     ParseCallbackState pcbstate;
     Datum agt;
     Const *c;
@@ -521,13 +530,13 @@ static Node *transform_cypher_bool_const(cypher_parsestate *cpstate,
     c = makeConst(AGTYPEOID, -1, InvalidOid, -1, agt, false, false);
     c->location = bc->location;
 
-    return (Node *)c;
+    return (Node *) c;
 }
 
 static Node *transform_cypher_integer_const(cypher_parsestate *cpstate,
                                             cypher_integer_const *ic)
 {
-    ParseState *pstate = (ParseState *)cpstate;
+    ParseState *pstate = (ParseState *) cpstate;
     ParseCallbackState pcbstate;
     Datum agt;
     Const *c;
@@ -540,13 +549,13 @@ static Node *transform_cypher_integer_const(cypher_parsestate *cpstate,
     c = makeConst(AGTYPEOID, -1, InvalidOid, -1, agt, false, false);
     c->location = ic->location;
 
-    return (Node *)c;
+    return (Node *) c;
 }
 
 static Node *transform_cypher_param(cypher_parsestate *cpstate,
                                     cypher_param *cp)
 {
-    ParseState *pstate = (ParseState *)cpstate;
+    ParseState *pstate = (ParseState *) cpstate;
     Const *const_str;
     FuncExpr *func_expr;
     Oid func_access_oid;
@@ -577,12 +586,12 @@ static Node *transform_cypher_param(cypher_parsestate *cpstate,
                              InvalidOid, COERCE_EXPLICIT_CALL);
     func_expr->location = cp->location;
 
-    return (Node *)func_expr;
+    return (Node *) func_expr;
 }
 
 static Node *transform_cypher_map(cypher_parsestate *cpstate, cypher_map *cm)
 {
-    ParseState *pstate = (ParseState *)cpstate;
+    ParseState *pstate = (ParseState *) cpstate;
     List *newkeyvals = NIL;
     ListCell *le;
     FuncExpr *fexpr;
@@ -617,15 +626,19 @@ static Node *transform_cypher_map(cypher_parsestate *cpstate, cypher_map *cm)
     }
 
     if (list_length(newkeyvals) == 0)
+    {
         func_oid = get_ag_func_oid("agtype_build_map", 0);
+    }
     else
+    {
         func_oid = get_ag_func_oid("agtype_build_map", 1, ANYOID);
+    }
 
     fexpr = makeFuncExpr(func_oid, AGTYPEOID, newkeyvals, InvalidOid,
                          InvalidOid, COERCE_EXPLICIT_CALL);
     fexpr->location = cm->location;
 
-    return (Node *)fexpr;
+    return (Node *) fexpr;
 }
 
 static Node *transform_cypher_list(cypher_parsestate *cpstate, cypher_list *cl)
@@ -645,15 +658,19 @@ static Node *transform_cypher_list(cypher_parsestate *cpstate, cypher_list *cl)
     }
 
     if (list_length(newelems) == 0)
+    {
         func_oid = get_ag_func_oid("agtype_build_list", 0);
+    }
     else
+    {
         func_oid = get_ag_func_oid("agtype_build_list", 1, ANYOID);
+    }
 
     fexpr = makeFuncExpr(func_oid, AGTYPEOID, newelems, InvalidOid, InvalidOid,
                          COERCE_EXPLICIT_CALL);
     fexpr->location = cl->location;
 
-    return (Node *)fexpr;
+    return (Node *) fexpr;
 }
 
 static Node *transform_A_Indirection(cypher_parsestate *cpstate,
@@ -686,9 +703,9 @@ static Node *transform_A_Indirection(cypher_parsestate *cpstate,
         Node *node = lfirst(lc);
 
         /* is this a slice? */
-        if (IsA(node, A_Indices) && ((A_Indices *)node)->is_slice)
+        if (IsA(node, A_Indices) && ((A_Indices *) node)->is_slice)
         {
-            A_Indices *indices = (A_Indices *)node;
+            A_Indices *indices = (A_Indices *) node;
 
             /* were we working on an access? if so, wrap and close it */
             if (is_access)
@@ -701,26 +718,33 @@ static Node *transform_A_Indirection(cypher_parsestate *cpstate,
                 /* we are no longer working on an access */
                 is_access = false;
             }
+
             /* add slice bounds to args */
             if (!indices->lidx)
             {
                 A_Const *n = makeNode(A_Const);
                 n->val.type = T_Null;
                 n->location = -1;
-                node = transform_cypher_expr_recurse(cpstate, (Node *)n);
+                node = transform_cypher_expr_recurse(cpstate, (Node *) n);
             }
             else
+            {
                 node = transform_cypher_expr_recurse(cpstate, indices->lidx);
+            }
+
             args = lappend(args, node);
             if (!indices->uidx)
             {
                 A_Const *n = makeNode(A_Const);
                 n->val.type = T_Null;
                 n->location = -1;
-                node = transform_cypher_expr_recurse(cpstate, (Node *)n);
+                node = transform_cypher_expr_recurse(cpstate, (Node *) n);
             }
             else
+            {
                 node = transform_cypher_expr_recurse(cpstate, indices->uidx);
+            }
+
             args = lappend(args, node);
             /* wrap and close it */
             func_expr = makeFuncExpr(func_slice_oid, AGTYPEOID, args,
@@ -737,7 +761,7 @@ static Node *transform_A_Indirection(cypher_parsestate *cpstate,
             /* is this an index? */
             if (IsA(node, A_Indices))
             {
-                A_Indices *indices = (A_Indices *)node;
+                A_Indices *indices = (A_Indices *) node;
 
                 node = transform_cypher_expr_recurse(cpstate, indices->uidx);
                 args = lappend(args, node);
@@ -761,12 +785,15 @@ static Node *transform_A_Indirection(cypher_parsestate *cpstate,
 
     /* if we were doing an access, we need wrap the args with access func. */
     if (is_access)
+    {
         func_expr = makeFuncExpr(func_access_oid, AGTYPEOID, args, InvalidOid,
                                  InvalidOid, COERCE_EXPLICIT_CALL);
+    }
+
     Assert(func_expr != NULL);
     func_expr->location = location;
 
-    return (Node *)func_expr;
+    return (Node *) func_expr;
 }
 
 static Node *transform_cypher_string_match(cypher_parsestate *cpstate,
@@ -806,7 +833,7 @@ static Node *transform_cypher_string_match(cypher_parsestate *cpstate,
                              InvalidOid, COERCE_EXPLICIT_CALL);
     func_expr->location = csm_node->location;
 
-    return (Node *)func_expr;
+    return (Node *) func_expr;
 }
 
 /*
@@ -819,8 +846,8 @@ static Node *transform_cypher_typecast(cypher_parsestate *cpstate,
     FuncCall *fnode;
 
     /* verify input parameter */
-    Assert (cpstate != NULL);
-    Assert (ctypecast != NULL);
+    Assert(cpstate != NULL);
+    Assert(ctypecast != NULL);
 
     /* create the qualified function name, schema first */
     fname = list_make1(makeString("ag_catalog"));
@@ -862,9 +889,8 @@ static Node *transform_cypher_typecast(cypher_parsestate *cpstate,
     /* if none was found, error out */
     else
     {
-        ereport(ERROR,
-                (errmsg_internal("typecast \'%s\' not supported",
-                                 ctypecast->typecast)));
+        ereport(ERROR, (errmsg_internal("typecast \'%s\' not supported",
+                                        ctypecast->typecast)));
     }
 
     /* make a function call node */
@@ -888,11 +914,11 @@ static Node *transform_FuncCall(cypher_parsestate *cpstate, FuncCall *fn)
     Node *retval = NULL;
 
     /* Transform the list of arguments ... */
-    foreach(arg, fn->args)
+    foreach (arg, fn->args)
     {
         Node *farg = NULL;
 
-        farg = (Node *)lfirst(arg);
+        farg = (Node *) lfirst(arg);
         targs = lappend(targs, transform_cypher_expr_recurse(cpstate, farg));
     }
 
@@ -906,7 +932,7 @@ static Node *transform_FuncCall(cypher_parsestate *cpstate, FuncCall *fn)
     if (list_length(fn->funcname) == 1)
     {
         /* get the name, size, and the ag name allocated */
-        char *name = ((Value*)linitial(fn->funcname))->val.str;
+        char *name = ((Value *) linitial(fn->funcname))->val.str;
         int pnlen = strlen(name);
         char *ag_name = palloc(pnlen + 5);
         int i;
@@ -945,7 +971,6 @@ static Node *transform_FuncCall(cypher_parsestate *cpstate, FuncCall *fn)
 
             targs = lcons(c, targs);
         }
-
     }
     /* If it is not one of our functions, pass the name list through */
     else
@@ -969,8 +994,8 @@ static Node *transform_FuncCall(cypher_parsestate *cpstate, FuncCall *fn)
 /*
  * Code borrowed from PG's transformCoalesceExpr and updated for AGE
  */
-static Node *transform_CoalesceExpr(cypher_parsestate *cpstate, CoalesceExpr
-                                    *cexpr)
+static Node *transform_CoalesceExpr(cypher_parsestate *cpstate,
+                                    CoalesceExpr *cexpr)
 {
     ParseState *pstate = &cpstate->pstate;
     CoalesceExpr *newcexpr = makeNode(CoalesceExpr);
@@ -979,9 +1004,9 @@ static Node *transform_CoalesceExpr(cypher_parsestate *cpstate, CoalesceExpr
     List *newcoercedargs = NIL;
     ListCell *args;
 
-    foreach(args, cexpr->args)
+    foreach (args, cexpr->args)
     {
-        Node *e = (Node *)lfirst(args);
+        Node *e = (Node *) lfirst(args);
         Node *newe;
 
         newe = transform_cypher_expr_recurse(cpstate, e);
@@ -993,9 +1018,9 @@ static Node *transform_CoalesceExpr(cypher_parsestate *cpstate, CoalesceExpr
     /* coalescecollid will be set by parse_collate.c */
 
     /* Convert arguments if necessary */
-    foreach(args, newargs)
+    foreach (args, newargs)
     {
-        Node *e = (Node *)lfirst(args);
+        Node *e = (Node *) lfirst(args);
         Node *newe;
 
         newe = coerce_to_common_type(pstate, e, newcexpr->coalescetype,
@@ -1022,19 +1047,18 @@ static Node *transform_CoalesceExpr(cypher_parsestate *cpstate, CoalesceExpr
 /*
  * Code borrowed from PG's transformCaseExpr and updated for AGE
  */
-static Node *transform_CaseExpr(cypher_parsestate *cpstate,CaseExpr
-                                *cexpr)
+static Node *transform_CaseExpr(cypher_parsestate *cpstate, CaseExpr *cexpr)
 {
     ParseState *pstate = &cpstate->pstate;
-    CaseExpr   *newcexpr = makeNode(CaseExpr);
-    Node       *last_srf = pstate->p_last_srf;
-    Node       *arg;
+    CaseExpr *newcexpr = makeNode(CaseExpr);
+    Node *last_srf = pstate->p_last_srf;
+    Node *arg;
     CaseTestExpr *placeholder;
-    List       *newargs;
-    List       *resultexprs;
-    ListCell   *l;
-    Node       *defresult;
-    Oid         ptype;
+    List *newargs;
+    List *resultexprs;
+    ListCell *l;
+    Node *defresult;
+    Oid ptype;
 
     /* transform the test expression, if any */
     arg = transform_cypher_expr_recurse(cpstate, (Node *) cexpr->arg);
@@ -1043,7 +1067,9 @@ static Node *transform_CaseExpr(cypher_parsestate *cpstate,CaseExpr
     if (arg)
     {
         if (exprType(arg) == UNKNOWNOID)
+        {
             arg = coerce_to_common_type(pstate, arg, TEXTOID, "CASE");
+        }
 
         assign_expr_collations(pstate, arg);
 
@@ -1062,25 +1088,23 @@ static Node *transform_CaseExpr(cypher_parsestate *cpstate,CaseExpr
     /* transform the list of arguments */
     newargs = NIL;
     resultexprs = NIL;
-    foreach(l, cexpr->args)
+    foreach (l, cexpr->args)
     {
-        CaseWhen   *w = lfirst_node(CaseWhen, l);
-        CaseWhen   *neww = makeNode(CaseWhen);
-        Node       *warg;
+        CaseWhen *w = lfirst_node(CaseWhen, l);
+        CaseWhen *neww = makeNode(CaseWhen);
+        Node *warg;
 
         warg = (Node *) w->expr;
         if (placeholder)
         {
             /* shorthand form was specified, so expand... */
-            warg = (Node *) makeSimpleA_Expr(AEXPR_OP, "=",
-                                             (Node *) placeholder,
-                                             warg,
-                                             w->location);
+            warg = (Node *) makeSimpleA_Expr(
+                AEXPR_OP, "=", (Node *) placeholder, warg, w->location);
         }
+
         neww->expr = (Expr *) transform_cypher_expr_recurse(cpstate, warg);
 
-        neww->expr = (Expr *) coerce_to_boolean(pstate,
-                                                (Node *) neww->expr,
+        neww->expr = (Expr *) coerce_to_boolean(pstate, (Node *) neww->expr,
                                                 "CASE/WHEN");
 
         warg = (Node *) w->result;
@@ -1097,13 +1121,15 @@ static Node *transform_CaseExpr(cypher_parsestate *cpstate,CaseExpr
     defresult = (Node *) cexpr->defresult;
     if (defresult == NULL)
     {
-        A_Const    *n = makeNode(A_Const);
+        A_Const *n = makeNode(A_Const);
 
         n->val.type = T_Null;
         n->location = -1;
         defresult = (Node *) n;
     }
-    newcexpr->defresult = (Expr *) transform_cypher_expr_recurse(cpstate, defresult);
+
+    newcexpr->defresult = (Expr *) transform_cypher_expr_recurse(cpstate,
+                                                                 defresult);
 
     resultexprs = lcons(newcexpr->defresult, resultexprs);
 
@@ -1113,34 +1139,30 @@ static Node *transform_CaseExpr(cypher_parsestate *cpstate,CaseExpr
     /* casecollid will be set by parse_collate.c */
 
     /* Convert default result clause, if necessary */
-    newcexpr->defresult = (Expr *)
-        coerce_to_common_type(pstate,
-                              (Node *) newcexpr->defresult,
-                              ptype,
-                              "CASE/ELSE");
+    newcexpr->defresult = (Expr *) coerce_to_common_type(
+        pstate, (Node *) newcexpr->defresult, ptype, "CASE/ELSE");
 
     /* Convert when-clause results, if necessary */
-    foreach(l, newcexpr->args)
+    foreach (l, newcexpr->args)
     {
-        CaseWhen   *w = (CaseWhen *) lfirst(l);
+        CaseWhen *w = (CaseWhen *) lfirst(l);
 
-        w->result = (Expr *)
-            coerce_to_common_type(pstate,
-                                  (Node *) w->result,
-                                  ptype,
-                                  "CASE/WHEN");
+        w->result = (Expr *) coerce_to_common_type(pstate, (Node *) w->result,
+                                                   ptype, "CASE/WHEN");
     }
 
     /* if any subexpression contained a SRF, complain */
     if (pstate->p_last_srf != last_srf)
-        ereport(ERROR,
-                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-        /* translator: %s is name of a SQL construct, eg GROUP BY */
-                 errmsg("set-returning functions are not allowed in %s",
-                        "CASE"),
-                 errhint("You might be able to move the set-returning function into a LATERAL FROM item."),
-                 parser_errposition(pstate,
-                                    exprLocation(pstate->p_last_srf))));
+    {
+        ereport(
+            ERROR,
+            (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+             /* translator: %s is name of a SQL construct, eg GROUP BY */
+             errmsg("set-returning functions are not allowed in %s", "CASE"),
+             errhint("You might be able to move the set-returning function "
+                     "into a LATERAL FROM item."),
+             parser_errposition(pstate, exprLocation(pstate->p_last_srf))));
+    }
 
     newcexpr->location = cexpr->location;
 
@@ -1150,10 +1172,9 @@ static Node *transform_CaseExpr(cypher_parsestate *cpstate,CaseExpr
 /* from PG's transformSubLink but reduced and hooked into our parser */
 static Node *transform_SubLink(cypher_parsestate *cpstate, SubLink *sublink)
 {
-    Node *result = (Node*)sublink;
+    Node *result = (Node *) sublink;
     Query *qtree;
-    ParseState *pstate = (ParseState*)cpstate;
-    const char *err = NULL;
+    ParseState *pstate = (ParseState *) cpstate;
     /*
      * Check to see if the sublink is in an invalid place within the query. We
      * allow sublinks everywhere in SELECT/INSERT/UPDATE/DELETE, but generally
@@ -1161,28 +1182,21 @@ static Node *transform_SubLink(cypher_parsestate *cpstate, SubLink *sublink)
      */
     switch (pstate->p_expr_kind)
     {
-        case EXPR_KIND_NONE:
-            Assert(false);          /* can't happen */
-            break;
-        case EXPR_KIND_OTHER:
-            /* Accept sublink here; caller must throw error if wanted */
-
-            break;
-        case EXPR_KIND_SELECT_TARGET:
-        case EXPR_KIND_FROM_SUBSELECT:
-        case EXPR_KIND_WHERE:
-            /* okay */
-            break;
-        default:
-            ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                            errmsg_internal("unsupported SubLink"),
-                            parser_errposition(pstate, sublink->location)));
+    case EXPR_KIND_NONE:
+        Assert(false); /* can't happen */
+        break;
+    case EXPR_KIND_OTHER:
+    /* Accept sublink here; caller must throw error if wanted */
+    case EXPR_KIND_SELECT_TARGET:
+    case EXPR_KIND_FROM_SUBSELECT:
+    case EXPR_KIND_WHERE:
+        /* okay */
+        break;
+    default:
+        ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                        errmsg_internal("unsupported SubLink"),
+                        parser_errposition(pstate, sublink->location)));
     }
-    if (err)
-        ereport(ERROR,
-                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                 errmsg_internal("%s", err),
-                 parser_errposition(pstate, sublink->location)));
 
     pstate->p_hasSubLinks = true;
 
@@ -1197,9 +1211,11 @@ static Node *transform_SubLink(cypher_parsestate *cpstate, SubLink *sublink)
      * restrictions of the grammar, but check anyway.
      */
     if (!IsA(qtree, Query) || qtree->commandType != CMD_SELECT)
+    {
         elog(ERROR, "unexpected non-SELECT command in SubLink");
+    }
 
-    sublink->subselect = (Node *)qtree;
+    sublink->subselect = (Node *) qtree;
 
     if (sublink->subLinkType == EXISTS_SUBLINK)
     {
@@ -1211,7 +1227,9 @@ static Node *transform_SubLink(cypher_parsestate *cpstate, SubLink *sublink)
         sublink->operName = NIL;
     }
     else
+    {
         elog(ERROR, "unsupported SubLink type");
+    }
 
     return result;
 }

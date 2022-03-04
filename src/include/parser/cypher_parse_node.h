@@ -30,7 +30,7 @@ typedef struct cypher_parsestate
 {
     ParseState pstate;
     char *graph_name;
-    Oid graph_oid;
+    uint32 graph_id;
     Param *params;
     int default_alias_num;
     List *entities;
@@ -43,18 +43,19 @@ typedef struct cypher_parsestate
      * else). It is only used by transform_cypher_item_list.
      */
     bool exprHasAgg;
+    bool p_opt_match;
 } cypher_parsestate;
 
 typedef struct errpos_ecb_state
 {
     ErrorContextCallback ecb;
     ParseState *pstate; // ParseState of query that has subquery being parsed
-    int query_loc; // location of subquery starting from p_sourcetext
+    int query_loc;      // location of subquery starting from p_sourcetext
 } errpos_ecb_state;
 
 cypher_parsestate *make_cypher_parsestate(cypher_parsestate *parent_cpstate);
 void free_cypher_parsestate(cypher_parsestate *cpstate);
-#define get_parse_state(cpstate) ((ParseState *)(cpstate))
+#define get_parse_state(cpstate) ((ParseState *) (cpstate))
 
 void setup_errpos_ecb(errpos_ecb_state *ecb_state, ParseState *pstate,
                       int query_loc);

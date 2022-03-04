@@ -6,20 +6,24 @@
  *
  * Portions Copyright (c) 1994, The Regents of the University of California
  *
- * Permission to use, copy, modify, and distribute this software and its documentation for any purpose,
- * without fee, and without a written agreement is hereby granted, provided that the above copyright notice
- * and this paragraph and the following two paragraphs appear in all copies.
+ * Permission to use, copy, modify, and distribute this software and its
+ * documentation for any purpose, without fee, and without a written agreement
+ * is hereby granted, provided that the above copyright notice and this
+ * paragraph and the following two paragraphs appear in all copies.
  *
- * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS,
- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY
- * OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
+ * DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING
+ * LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION,
+ * EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  *
- * THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING,
- * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ * FITNESS FOR A PARTICULAR PURPOSE.
  *
- * THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA
- * HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF
+ * CALIFORNIA HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+ * ENHANCEMENTS, OR MODIFICATIONS.
  */
 
 /*
@@ -46,15 +50,15 @@
  */
 typedef enum /* contexts of agtype parser */
 {
-    AGTYPE_PARSE_VALUE, /* expecting a value */
-    AGTYPE_PARSE_STRING, /* expecting a string (for a field name) */
-    AGTYPE_PARSE_ARRAY_START, /* saw '[', expecting value or ']' */
-    AGTYPE_PARSE_ARRAY_NEXT, /* saw array element, expecting ',' or ']' */
+    AGTYPE_PARSE_VALUE,        /* expecting a value */
+    AGTYPE_PARSE_STRING,       /* expecting a string (for a field name) */
+    AGTYPE_PARSE_ARRAY_START,  /* saw '[', expecting value or ']' */
+    AGTYPE_PARSE_ARRAY_NEXT,   /* saw array element, expecting ',' or ']' */
     AGTYPE_PARSE_OBJECT_START, /* saw '{', expecting label or '}' */
     AGTYPE_PARSE_OBJECT_LABEL, /* saw object label, expecting ':' */
-    AGTYPE_PARSE_OBJECT_NEXT, /* saw object value, expecting ',' or '}' */
+    AGTYPE_PARSE_OBJECT_NEXT,  /* saw object value, expecting ',' or '}' */
     AGTYPE_PARSE_OBJECT_COMMA, /* saw object ',', expecting next label */
-    AGTYPE_PARSE_END /* saw the end of a document, expect nothing */
+    AGTYPE_PARSE_END           /* saw the end of a document, expect nothing */
 } agtype_parse_context;
 
 static inline void agtype_lex(agtype_lex_context *lex);
@@ -66,15 +70,13 @@ static void parse_scalar_annotation(agtype_lex_context *lex, void *func,
 static void parse_annotation(agtype_lex_context *lex, agtype_sem_action *sem);
 static inline void parse_scalar(agtype_lex_context *lex,
                                 agtype_sem_action *sem);
-static void parse_object_field(agtype_lex_context *lex,
-                               agtype_sem_action *sem);
+static void parse_object_field(agtype_lex_context *lex, agtype_sem_action *sem);
 static void parse_object(agtype_lex_context *lex, agtype_sem_action *sem);
 static void parse_array_element(agtype_lex_context *lex,
                                 agtype_sem_action *sem);
 static void parse_array(agtype_lex_context *lex, agtype_sem_action *sem);
 static void report_parse_error(agtype_parse_context ctx,
-                               agtype_lex_context *lex)
-    pg_attribute_noreturn();
+                               agtype_lex_context *lex) pg_attribute_noreturn();
 static void report_invalid_token(agtype_lex_context *lex)
     pg_attribute_noreturn();
 static int report_agtype_context(agtype_lex_context *lex);
@@ -86,7 +88,7 @@ static char *extract_mb_char(char *s);
  * lex_peek
  *
  * what is the current look_ahead token?
-*/
+ */
 static inline agtype_token_type lex_peek(agtype_lex_context *lex)
 {
     return lex->token_type;
@@ -111,7 +113,9 @@ static inline bool lex_accept(agtype_lex_context *lex, agtype_token_type token,
             if (lex->token_type == AGTYPE_TOKEN_STRING)
             {
                 if (lex->strval != NULL)
+                {
                     *lexeme = pstrdup(lex->strval->data);
+                }
             }
             else
             {
@@ -123,9 +127,11 @@ static inline bool lex_accept(agtype_lex_context *lex, agtype_token_type token,
                 *lexeme = tokstr;
             }
         }
+
         agtype_lex(lex);
         return true;
     }
+
     return false;
 }
 
@@ -135,11 +141,13 @@ static inline bool lex_accept(agtype_lex_context *lex, agtype_token_type token,
  * move the lexer to the next token if the current look_ahead token matches
  * the parameter token. Otherwise, report an error.
  */
-static inline void lex_expect(agtype_parse_context ctx,
-                              agtype_lex_context *lex, agtype_token_type token)
+static inline void lex_expect(agtype_parse_context ctx, agtype_lex_context *lex,
+                              agtype_token_type token)
 {
     if (!lex_accept(lex, token, NULL))
+    {
         report_parse_error(ctx, lex);
+    }
 }
 
 /* chars to consider as part of an alphanumeric token */
@@ -159,7 +167,9 @@ bool is_valid_agtype_number(const char *str, int len)
     agtype_lex_context dummy_lex;
 
     if (len <= 0)
+    {
         return false;
+    }
 
     /*
      * agtype_lex_number expects a leading  '-' to have been eaten already.
@@ -169,12 +179,12 @@ bool is_valid_agtype_number(const char *str, int len)
      */
     if (*str == '-')
     {
-        dummy_lex.input = (char *)str + 1;
+        dummy_lex.input = (char *) str + 1;
         dummy_lex.input_length = len - 1;
     }
     else
     {
-        dummy_lex.input = (char *)str;
+        dummy_lex.input = (char *) str;
         dummy_lex.input_length = len;
     }
 
@@ -210,7 +220,10 @@ agtype_lex_context *make_agtype_lex_context_cstring_len(char *str, int len,
     lex->line_number = 1;
     lex->input_length = len;
     if (need_escapes)
+    {
         lex->strval = makeStringInfo();
+    }
+
     return lex;
 }
 
@@ -261,14 +274,19 @@ static void parse_scalar_annotation(agtype_lex_context *lex, void *func,
         {
             /* eat the identifier token and get the annotation value */
             if (func != NULL)
+            {
                 lex_accept(lex, AGTYPE_TOKEN_IDENTIFIER, annotation);
+            }
             else
+            {
                 lex_accept(lex, AGTYPE_TOKEN_IDENTIFIER, NULL);
+            }
         }
         else
-            ereport(ERROR,
-                    (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                     errmsg("invalid value for annotation")));
+        {
+            ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                            errmsg("invalid value for annotation")));
+        }
     }
 }
 
@@ -288,13 +306,16 @@ static void parse_annotation(agtype_lex_context *lex, agtype_sem_action *sem)
             lex_accept(lex, AGTYPE_TOKEN_IDENTIFIER, &annotation);
         }
         else
-            ereport(ERROR,
-                    (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                     errmsg("invalid value for annotation")));
+        {
+            ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                            errmsg("invalid value for annotation")));
+        }
 
         /* pass to annotation callback */
         if (afunc != NULL)
+        {
             (*afunc)(sem->semstate, annotation);
+        }
     }
 }
 
@@ -307,8 +328,7 @@ static void parse_annotation(agtype_lex_context *lex, agtype_sem_action *sem)
  *    - object ( { } )
  *    - object field
  */
-static inline void parse_scalar(agtype_lex_context *lex,
-                                agtype_sem_action *sem)
+static inline void parse_scalar(agtype_lex_context *lex, agtype_sem_action *sem)
 {
     char *val = NULL;
     char *annotation = NULL;
@@ -347,7 +367,9 @@ static inline void parse_scalar(agtype_lex_context *lex,
     parse_scalar_annotation(lex, sfunc, &annotation);
 
     if (sfunc != NULL)
+    {
         (*sfunc)(sem->semstate, val, tok, annotation);
+    }
 }
 
 static void parse_object_field(agtype_lex_context *lex, agtype_sem_action *sem)
@@ -366,10 +388,14 @@ static void parse_object_field(agtype_lex_context *lex, agtype_sem_action *sem)
     agtype_token_type tok;
 
     if (ostart != NULL || oend != NULL)
+    {
         fnameaddr = &fname;
+    }
 
     if (!lex_accept(lex, AGTYPE_TOKEN_STRING, fnameaddr))
+    {
         report_parse_error(AGTYPE_PARSE_STRING, lex);
+    }
 
     lex_expect(AGTYPE_PARSE_OBJECT_LABEL, lex, AGTYPE_TOKEN_COLON);
 
@@ -377,7 +403,9 @@ static void parse_object_field(agtype_lex_context *lex, agtype_sem_action *sem)
     isnull = tok == AGTYPE_TOKEN_NULL;
 
     if (ostart != NULL)
+    {
         (*ostart)(sem->semstate, fname, isnull);
+    }
 
     switch (tok)
     {
@@ -392,7 +420,9 @@ static void parse_object_field(agtype_lex_context *lex, agtype_sem_action *sem)
     }
 
     if (oend != NULL)
+    {
         (*oend)(sem->semstate, fname, isnull);
+    }
 }
 
 static void parse_object(agtype_lex_context *lex, agtype_sem_action *sem)
@@ -408,7 +438,9 @@ static void parse_object(agtype_lex_context *lex, agtype_sem_action *sem)
     check_stack_depth();
 
     if (ostart != NULL)
+    {
         (*ostart)(sem->semstate);
+    }
 
     /*
      * Data inside an object is at a higher nesting level than the object
@@ -441,14 +473,15 @@ static void parse_object(agtype_lex_context *lex, agtype_sem_action *sem)
     lex->lex_level--;
 
     if (oend != NULL)
+    {
         (*oend)(sem->semstate);
+    }
 
     /* parse annotations (typecasts) */
     parse_annotation(lex, sem);
 }
 
-static void parse_array_element(agtype_lex_context *lex,
-                                agtype_sem_action *sem)
+static void parse_array_element(agtype_lex_context *lex, agtype_sem_action *sem)
 {
     agtype_aelem_action astart = sem->array_element_start;
     agtype_aelem_action aend = sem->array_element_end;
@@ -459,7 +492,9 @@ static void parse_array_element(agtype_lex_context *lex,
     isnull = tok == AGTYPE_TOKEN_NULL;
 
     if (astart != NULL)
+    {
         (*astart)(sem->semstate, isnull);
+    }
 
     /* an array element is any object, array or scalar */
     switch (tok)
@@ -475,7 +510,9 @@ static void parse_array_element(agtype_lex_context *lex,
     }
 
     if (aend != NULL)
+    {
         (*aend)(sem->semstate, isnull);
+    }
 }
 
 static void parse_array(agtype_lex_context *lex, agtype_sem_action *sem)
@@ -490,7 +527,9 @@ static void parse_array(agtype_lex_context *lex, agtype_sem_action *sem)
     check_stack_depth();
 
     if (astart != NULL)
+    {
         (*astart)(sem->semstate);
+    }
 
     /*
      * Data inside an array is at a higher nesting level than the array
@@ -514,7 +553,9 @@ static void parse_array(agtype_lex_context *lex, agtype_sem_action *sem)
     lex->lex_level--;
 
     if (aend != NULL)
+    {
         (*aend)(sem->semstate);
+    }
 
     /* parse annotations (typecasts) */
     parse_annotation(lex, sem);
@@ -535,7 +576,10 @@ static inline void agtype_lex(agtype_lex_context *lex)
            (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r'))
     {
         if (*s == '\n')
+        {
             ++lex->line_number;
+        }
+
         ++s;
         ++len;
     }
@@ -553,7 +597,7 @@ static inline void agtype_lex(agtype_lex_context *lex)
     {
         switch (*s)
         {
-            /* Single-character token, some kind of punctuation mark. */
+        /* Single-character token, some kind of punctuation mark. */
         case '{':
             lex->prev_token_terminator = lex->token_terminator;
             lex->token_terminator = s + 1;
@@ -594,6 +638,7 @@ static inline void agtype_lex(agtype_lex_context *lex)
                 lex->token_terminator = s + 1;
                 lex->token_type = AGTYPE_TOKEN_COLON;
             }
+
             break;
         case '"':
             /* string */
@@ -622,20 +667,29 @@ static inline void agtype_lex(agtype_lex_context *lex)
                 {
                 case 3:
                     if (pg_strncasecmp(s1, "inf", len) == 0)
+                    {
                         lex->token_type = AGTYPE_TOKEN_FLOAT;
+                    }
+
                     break;
                 case 8:
                     if (pg_strncasecmp(s1, "Infinity", len) == 0)
+                    {
                         lex->token_type = AGTYPE_TOKEN_FLOAT;
+                    }
+
                     break;
                 }
                 if (lex->token_type == AGTYPE_TOKEN_INVALID)
+                {
                     report_invalid_token(lex);
+                }
             }
             else
             {
                 agtype_lex_number(lex, s + 1, NULL, NULL);
             }
+
             /* token is assigned in agtype_lex_number */
             break;
         case '0':
@@ -652,8 +706,7 @@ static inline void agtype_lex(agtype_lex_context *lex)
             agtype_lex_number(lex, s, NULL, NULL);
             /* token is assigned in agtype_lex_number */
             break;
-        default:
-        {
+        default: {
             char *p;
 
             /*
@@ -705,21 +758,35 @@ static inline void agtype_lex(agtype_lex_context *lex)
             case 3:
                 if ((pg_strncasecmp(s, "NaN", len) == 0) ||
                     (pg_strncasecmp(s, "inf", len) == 0))
+                {
                     lex->token_type = AGTYPE_TOKEN_FLOAT;
+                }
+
                 break;
             case 4:
                 if (memcmp(s, "true", len) == 0)
+                {
                     lex->token_type = AGTYPE_TOKEN_TRUE;
+                }
                 else if (memcmp(s, "null", len) == 0)
+                {
                     lex->token_type = AGTYPE_TOKEN_NULL;
+                }
+
                 break;
             case 5:
                 if (memcmp(s, "false", len) == 0)
+                {
                     lex->token_type = AGTYPE_TOKEN_FALSE;
+                }
+
                 break;
             case 8:
                 if (pg_strncasecmp(s, "Infinity", len) == 0)
+                {
                     lex->token_type = AGTYPE_TOKEN_FLOAT;
+                }
+
                 break;
             }
         } /* end of default case */
@@ -737,7 +804,9 @@ static inline void agtype_lex_string(agtype_lex_context *lex)
     int hi_surrogate = -1;
 
     if (lex->strval != NULL)
+    {
         resetStringInfo(lex->strval);
+    }
 
     Assert(lex->input_length > 0);
     s = lex->token_start;
@@ -756,7 +825,7 @@ static inline void agtype_lex_string(agtype_lex_context *lex)
         {
             break;
         }
-        else if ((unsigned char)*s < 32)
+        else if ((unsigned char) *s < 32)
         {
             /* Per RFC4627, these characters MUST be escaped. */
             /* Since *s isn't printable, exclude it from the context string */
@@ -765,7 +834,7 @@ static inline void agtype_lex_string(agtype_lex_context *lex)
                     (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
                      errmsg("invalid input syntax for type %s", "agtype"),
                      errdetail("Character with value 0x%02x must be escaped.",
-                               (unsigned char)*s),
+                               (unsigned char) *s),
                      report_agtype_context(lex)));
         }
         else if (*s == '\\')
@@ -832,9 +901,11 @@ static inline void agtype_lex_string(agtype_lex_context *lex)
                                  errmsg("invalid input syntax for type %s",
                                         "agtype"),
                                  errdetail(
-                                     "Unicode high surrogate must not follow a high surrogate."),
+                                     "Unicode high surrogate must not follow a "
+                                     "high surrogate."),
                                  report_agtype_context(lex)));
                         }
+
                         hi_surrogate = (ch & 0x3ff) << 10;
                         continue;
                     }
@@ -851,6 +922,7 @@ static inline void agtype_lex_string(agtype_lex_context *lex)
                                      "Unicode low surrogate must follow a high surrogate."),
                                  report_agtype_context(lex)));
                         }
+
                         ch = 0x10000 + hi_surrogate + (ch & 0x3ff);
                         hi_surrogate = -1;
                     }
@@ -886,8 +958,8 @@ static inline void agtype_lex_string(agtype_lex_context *lex)
                     }
                     else if (GetDatabaseEncoding() == PG_UTF8)
                     {
-                        unicode_to_utf8(ch, (unsigned char *)utf8str);
-                        utf8len = pg_utf_mblen((unsigned char *)utf8str);
+                        unicode_to_utf8(ch, (unsigned char *) utf8str);
+                        utf8len = pg_utf_mblen((unsigned char *) utf8str);
                         appendBinaryStringInfo(lex->strval, utf8str, utf8len);
                     }
                     else if (ch <= 0x007f)
@@ -897,7 +969,7 @@ static inline void agtype_lex_string(agtype_lex_context *lex)
                          * form feed character in agtype, so it's useful in all
                          * encodings.
                          */
-                        appendStringInfoChar(lex->strval, (char)ch);
+                        appendStringInfoChar(lex->strval, (char) ch);
                     }
                     else
                     {
@@ -906,7 +978,8 @@ static inline void agtype_lex_string(agtype_lex_context *lex)
                             (errcode(ERRCODE_UNTRANSLATABLE_CHARACTER),
                              errmsg("unsupported Unicode escape sequence"),
                              errdetail(
-                                 "Unicode escape values cannot be used for code point values above 007F when the server encoding is not UTF8."),
+                                 "Unicode escape values cannot be used for code point "
+                                 "values above 007F when the server encoding is not UTF8."),
                              report_agtype_context(lex)));
                     }
                 }
@@ -1102,6 +1175,7 @@ static inline void agtype_lex_number(agtype_lex_context *lex, char *s,
             s++;
             len++;
         }
+
         if (len == lex->input_length || *s < '0' || *s > '9')
         {
             error = true;
@@ -1125,7 +1199,9 @@ static inline void agtype_lex_number(agtype_lex_context *lex, char *s,
         error = true;
 
     if (total_len != NULL)
+    {
         *total_len = len;
+    }
 
     if (num_err != NULL)
     {
@@ -1139,7 +1215,9 @@ static inline void agtype_lex_number(agtype_lex_context *lex, char *s,
         lex->token_terminator = s;
         /* handle error if any */
         if (error)
+        {
             report_invalid_token(lex);
+        }
     }
 }
 
@@ -1198,21 +1276,21 @@ static void report_parse_error(agtype_parse_context ctx,
                      report_agtype_context(lex)));
             break;
         case AGTYPE_PARSE_ARRAY_START:
-            ereport(ERROR,
-                    (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-                     errmsg("invalid input syntax for type %s", "agtype"),
-                     errdetail(
-                         "Expected array element or \"]\", but found \"%s\".",
-                         token),
-                     report_agtype_context(lex)));
+            ereport(
+                ERROR,
+                (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+                 errmsg("invalid input syntax for type %s", "agtype"),
+                 errdetail("Expected array element or \"]\", but found \"%s\".",
+                           token),
+                 report_agtype_context(lex)));
             break;
         case AGTYPE_PARSE_ARRAY_NEXT:
-            ereport(ERROR,
-                    (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-                     errmsg("invalid input syntax for type %s", "agtype"),
-                     errdetail("Expected \",\" or \"]\", but found \"%s\".",
-                               token),
-                     report_agtype_context(lex)));
+            ereport(
+                ERROR,
+                (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+                 errmsg("invalid input syntax for type %s", "agtype"),
+                 errdetail("Expected \",\" or \"]\", but found \"%s\".", token),
+                 report_agtype_context(lex)));
             break;
         case AGTYPE_PARSE_OBJECT_START:
             ereport(ERROR,
@@ -1230,12 +1308,12 @@ static void report_parse_error(agtype_parse_context ctx,
                      report_agtype_context(lex)));
             break;
         case AGTYPE_PARSE_OBJECT_NEXT:
-            ereport(ERROR,
-                    (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-                     errmsg("invalid input syntax for type %s", "agtype"),
-                     errdetail("Expected \",\" or \"}\", but found \"%s\".",
-                               token),
-                     report_agtype_context(lex)));
+            ereport(
+                ERROR,
+                (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+                 errmsg("invalid input syntax for type %s", "agtype"),
+                 errdetail("Expected \",\" or \"}\", but found \"%s\".", token),
+                 report_agtype_context(lex)));
             break;
         case AGTYPE_PARSE_OBJECT_COMMA:
             ereport(ERROR,
@@ -1308,14 +1386,22 @@ static int report_agtype_context(agtype_lex_context *lex)
             line_number++;
             continue;
         }
+
         /* Otherwise, done as soon as we are close enough to context_end */
         if (context_end - context_start < 50)
+        {
             break;
+        }
+
         /* Advance to next multibyte character */
         if (IS_HIGHBIT_SET(*context_start))
+        {
             context_start += pg_mblen(context_start);
+        }
         else
+        {
             context_start++;
+        }
     }
 
     /*
@@ -1324,7 +1410,9 @@ static int report_agtype_context(agtype_lex_context *lex)
      * beginning of the line, we might as well just show the whole line.
      */
     if (context_start - line_start <= 3)
+    {
         context_start = line_start;
+    }
 
     /* Get a null-terminated copy of the data to present */
     ctxtlen = context_end - context_start;
@@ -1340,12 +1428,16 @@ static int report_agtype_context(agtype_lex_context *lex)
     if (lex->token_type != AGTYPE_TOKEN_END &&
         context_end - lex->input < lex->input_length && *context_end != '\n' &&
         *context_end != '\r')
+    {
         suffix = "...";
+    }
     else
+    {
         suffix = "";
+    }
 
-    return errcontext("agtype data, line %d: %s%s%s", line_number, prefix,
-                      ctxt, suffix);
+    return errcontext("agtype data, line %d: %s%s%s", line_number, prefix, ctxt,
+                      suffix);
 }
 
 /*
@@ -1371,12 +1463,13 @@ static char *extract_mb_char(char *s)
 char *agtype_encode_date_time(char *buf, Datum value, Oid typid)
 {
     if (!buf)
+    {
         buf = palloc(MAXDATELEN + 1);
+    }
 
     switch (typid)
     {
-    case DATEOID:
-    {
+    case DATEOID: {
         DateADT date;
         struct pg_tm tm;
 
@@ -1395,8 +1488,7 @@ char *agtype_encode_date_time(char *buf, Datum value, Oid typid)
         }
     }
     break;
-    case TIMEOID:
-    {
+    case TIMEOID: {
         TimeADT time = DatumGetTimeADT(value);
         struct pg_tm tt, *tm = &tt;
         fsec_t fsec;
@@ -1406,8 +1498,7 @@ char *agtype_encode_date_time(char *buf, Datum value, Oid typid)
         EncodeTimeOnly(tm, fsec, false, 0, USE_XSD_DATES, buf);
     }
     break;
-    case TIMETZOID:
-    {
+    case TIMETZOID: {
         TimeTzADT *time = DatumGetTimeTzADTP(value);
         struct pg_tm tt, *tm = &tt;
         fsec_t fsec;
@@ -1418,8 +1509,7 @@ char *agtype_encode_date_time(char *buf, Datum value, Oid typid)
         EncodeTimeOnly(tm, fsec, true, tz, USE_XSD_DATES, buf);
     }
     break;
-    case TIMESTAMPOID:
-    {
+    case TIMESTAMPOID: {
         Timestamp timestamp;
         struct pg_tm tm;
         fsec_t fsec;
@@ -1441,8 +1531,7 @@ char *agtype_encode_date_time(char *buf, Datum value, Oid typid)
         }
     }
     break;
-    case TIMESTAMPTZOID:
-    {
+    case TIMESTAMPTZOID: {
         TimestampTz timestamp;
         struct pg_tm tm;
         int tz;

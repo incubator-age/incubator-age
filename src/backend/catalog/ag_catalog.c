@@ -62,7 +62,6 @@ void object_access_hook_fini(void)
         prev_object_access_hook = NULL;
         prev_object_hook_is_set = false;
     }
-
 }
 
 void process_utility_hook_init(void)
@@ -87,18 +86,24 @@ void process_utility_hook_fini(void)
  * the extension.
  */
 void ag_ProcessUtility_hook(PlannedStmt *pstmt, const char *queryString,
-                             ProcessUtilityContext context, ParamListInfo params,
-                             QueryEnvironment *queryEnv, DestReceiver *dest,
-                             char *completionTag)
+                            ProcessUtilityContext context, ParamListInfo params,
+                            QueryEnvironment *queryEnv, DestReceiver *dest,
+                            char *completionTag)
 {
     if (is_age_drop(pstmt))
-        drop_age_extension((DropStmt *)pstmt->utilityStmt);
+    {
+        drop_age_extension((DropStmt *) pstmt->utilityStmt);
+    }
     else if (prev_process_utility_hook)
-        (*prev_process_utility_hook) (pstmt, queryString, context, params,
-                                      queryEnv, dest, completionTag);
+    {
+        (*prev_process_utility_hook)(pstmt, queryString, context, params,
+                                     queryEnv, dest, completionTag);
+    }
     else
+    {
         standard_ProcessUtility(pstmt, queryString, context, params, queryEnv,
                                 dest, completionTag);
+    }
 }
 
 static void drop_age_extension(DropStmt *stmt)
@@ -123,21 +128,25 @@ static bool is_age_drop(PlannedStmt *pstmt)
     DropStmt *drop_stmt;
 
     if (!IsA(pstmt->utilityStmt, DropStmt))
+    {
         return false;
+    }
 
-    drop_stmt = (DropStmt *)pstmt->utilityStmt;
+    drop_stmt = (DropStmt *) pstmt->utilityStmt;
 
-    foreach(lc, drop_stmt->objects)
+    foreach (lc, drop_stmt->objects)
     {
         Node *obj = lfirst(lc);
 
         if (IsA(obj, String))
         {
-            Value *val = (Value *)obj;
+            Value *val = (Value *) obj;
             char *str = val->val.str;
 
             if (!pg_strcasecmp(str, "age"))
+            {
                 return true;
+            }
         }
     }
 
@@ -156,11 +165,15 @@ static void object_access(ObjectAccessType access, Oid class_id, Oid object_id,
     ObjectAccessDrop *drop_arg;
 
     if (prev_object_access_hook)
+    {
         prev_object_access_hook(access, class_id, object_id, sub_id, arg);
+    }
 
     // We are interested in DROP SCHEMA and DROP TABLE commands.
     if (access != OAT_DROP)
+    {
         return;
+    }
 
     drop_arg = arg;
 
@@ -179,7 +192,9 @@ static void object_access(ObjectAccessType access, Oid class_id, Oid object_id,
         graph_cache_data *cache_data;
 
         if (drop_arg->dropflags & PERFORM_DELETION_INTERNAL)
+        {
             return;
+        }
 
         cache_data = search_graph_namespace_cache(object_id);
         if (cache_data)
@@ -187,8 +202,8 @@ static void object_access(ObjectAccessType access, Oid class_id, Oid object_id,
             char *nspname = get_namespace_name(object_id);
 
             ereport(ERROR, (errcode(ERRCODE_DEPENDENT_OBJECTS_STILL_EXIST),
-                            errmsg("schema \"%s\" is for graph \"%s\"",
-                                   nspname, NameStr(cache_data->name))));
+                            errmsg("schema \"%s\" is for graph \"%s\"", nspname,
+                                   NameStr(cache_data->name))));
         }
 
         return;
@@ -202,7 +217,9 @@ static void object_access(ObjectAccessType access, Oid class_id, Oid object_id,
 
         // We are interested in only tables that are labels.
         if (!cache_data)
+        {
             return;
+        }
 
         if (drop_arg->dropflags & PERFORM_DELETION_INTERNAL)
         {
@@ -218,8 +235,8 @@ static void object_access(ObjectAccessType access, Oid class_id, Oid object_id,
             char *relname = get_rel_name(object_id);
 
             ereport(ERROR, (errcode(ERRCODE_DEPENDENT_OBJECTS_STILL_EXIST),
-                            errmsg("table \"%s\" is for label \"%s\"",
-                                   relname, NameStr(cache_data->name))));
+                            errmsg("table \"%s\" is for label \"%s\"", relname,
+                                   NameStr(cache_data->name))));
         }
     }
 }

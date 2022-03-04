@@ -19,26 +19,22 @@
 
 #include "postgres.h"
 
+#include "access/heapam.h"
 #include "access/htup_details.h"
 #include "access/xact.h"
-#include "access/heapam.h"
 #include "executor/tuptable.h"
 #include "nodes/execnodes.h"
 #include "nodes/extensible.h"
 #include "nodes/nodes.h"
 #include "nodes/plannodes.h"
-#include "parser/parse_relation.h"
 #include "rewrite/rewriteHandler.h"
 #include "utils/rel.h"
-#include "access/table.h"
-//#include "utils/tqual.h"
 
 #include "catalog/ag_label.h"
 #include "executor/cypher_executor.h"
 #include "executor/cypher_utils.h"
 #include "nodes/cypher_nodes.h"
 #include "utils/agtype.h"
-#include "utils/ag_cache.h"
 #include "utils/graphid.h"
 
 static void begin_cypher_create(CustomScanState *node, EState *estate,
@@ -53,34 +49,32 @@ static void create_edge(cypher_create_custom_scan_state *css,
 
 static Datum create_vertex(cypher_create_custom_scan_state *css,
                            cypher_target_node *node, ListCell *next);
-static HeapTuple insert_entity_tuple(ResultRelInfo *resultRelInfo,
-                                TupleTableSlot *elemTupleSlot, EState *estate);
-static void process_pattern(cypher_create_custom_scan_state *css);
-static bool entity_exists(EState *estate, Oid graph_oid, graphid id);
 
-const CustomExecMethods cypher_create_exec_methods = {CREATE_SCAN_STATE_NAME,
-                                                      begin_cypher_create,
-                                                      exec_cypher_create,
-                                                      end_cypher_create,
-                                                      rescan_cypher_create,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL};
+static void process_pattern(cypher_create_custom_scan_state *css);
+
+const CustomExecMethods cypher_create_exec_methods = {
+    CREATE_SCAN_STATE_NAME,
+    begin_cypher_create,
+    exec_cypher_create,
+    end_cypher_create,
+    rescan_cypher_create,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
 
 static void begin_cypher_create(CustomScanState *node, EState *estate,
                                 int eflags)
 {
     cypher_create_custom_scan_state *css =
-        (cypher_create_custom_scan_state *)node;
+        (cypher_create_custom_scan_state *) node;
     ListCell *lc;
     Plan *subplan;
-
-    init_keywords();
 
     Assert(list_length(css->cs->custom_plans) == 1);
 
@@ -90,7 +84,8 @@ static void begin_cypher_create(CustomScanState *node, EState *estate,
     ExecAssignExprContext(estate, &node->ss.ps);
 
     ExecInitScanTupleSlot(estate, &node->ss,
-                          ExecGetResultType(node->ss.ps.lefttree), &TTSOpsHeapTuple);
+                          ExecGetResultType(node->ss.ps.lefttree),
+                          &TTSOpsHeapTuple);
 
     if (!CYPHER_CLAUSE_IS_TERMINAL(css->flags))
     {
@@ -106,11 +101,13 @@ static void begin_cypher_create(CustomScanState *node, EState *estate,
         foreach (lc2, path->target_nodes)
         {
             cypher_target_node *cypher_node =
-                (cypher_target_node *)lfirst(lc2);
+                (cypher_target_node *) lfirst(lc2);
             Relation rel;
 
             if (!CYPHER_TARGET_NODE_INSERT_ENTITY(cypher_node->flags))
+            {
                 continue;
+            }
 
             // Open relation and aquire a row exclusive lock.
             rel = table_open(cypher_node->relid, RowExclusiveLock);
@@ -127,12 +124,13 @@ static void begin_cypher_create(CustomScanState *node, EState *estate,
             // Setup the relation's tuple slot
             cypher_node->elemTupleSlot = ExecInitExtraTupleSlot(
                 estate,
-                RelationGetDescr(cypher_node->resultRelInfo->ri_RelationDesc), &TTSOpsHeapTuple);
+                RelationGetDescr(cypher_node->resultRelInfo->ri_RelationDesc),
+                &TTSOpsHeapTuple);
 
             if (cypher_node->id_expr != NULL)
             {
-                cypher_node->id_expr_state =
-                    ExecInitExpr(cypher_node->id_expr, (PlanState *)node);
+                cypher_node->id_expr_state = ExecInitExpr(cypher_node->id_expr,
+                                                          (PlanState *) node);
             }
         }
     }
@@ -145,7 +143,9 @@ static void begin_cypher_create(CustomScanState *node, EState *estate,
      * that have modified the command id.
      */
     if (estate->es_output_cid == 0)
+    {
         estate->es_output_cid = estate->es_snapshot->curcid;
+    }
 
     Increment_Estate_CommandId(estate);
 }
@@ -196,7 +196,7 @@ static void process_pattern(cypher_create_custom_scan_state *css)
 static TupleTableSlot *exec_cypher_create(CustomScanState *node)
 {
     cypher_create_custom_scan_state *css =
-        (cypher_create_custom_scan_state *)node;
+        (cypher_create_custom_scan_state *) node;
     EState *estate = css->css.ss.ps.state;
     ExprContext *econtext = css->css.ss.ps.ps_ExprContext;
     TupleTableSlot *slot;
@@ -212,14 +212,15 @@ static TupleTableSlot *exec_cypher_create(CustomScanState *node)
     do
     {
         /*Process the subtree first */
-        Decrement_Estate_CommandId(estate)
+        Decrement_Estate_CommandId(estate);
         slot = ExecProcNode(node->ss.ps.lefttree);
-        Increment_Estate_CommandId(estate)
+        Increment_Estate_CommandId(estate);
         /* break when there are no tuples */
         if (TupIsNull(slot))
         {
             break;
         }
+
         /* setup the scantuple that the process_pattern needs */
         econtext->ecxt_scantuple =
             node->ss.ps.lefttree->ps_ProjInfo->pi_exprContext->ecxt_scantuple;
@@ -243,6 +244,7 @@ static TupleTableSlot *exec_cypher_create(CustomScanState *node)
     {
         return NULL;
     }
+
     /* update the current command Id */
     CommandCounterIncrement();
     /* if this was a terminal CREATE just return NULL */
@@ -258,7 +260,7 @@ static TupleTableSlot *exec_cypher_create(CustomScanState *node)
 static void end_cypher_create(CustomScanState *node)
 {
     cypher_create_custom_scan_state *css =
-        (cypher_create_custom_scan_state *)node;
+        (cypher_create_custom_scan_state *) node;
     ListCell *lc;
 
     ExecEndNode(node->ss.ps.lefttree);
@@ -270,26 +272,31 @@ static void end_cypher_create(CustomScanState *node)
         foreach (lc2, path->target_nodes)
         {
             cypher_target_node *cypher_node =
-                (cypher_target_node *)lfirst(lc2);
+                (cypher_target_node *) lfirst(lc2);
 
             if (!CYPHER_TARGET_NODE_INSERT_ENTITY(cypher_node->flags))
+            {
                 continue;
+            }
 
             // close all indices for the node
             ExecCloseIndices(cypher_node->resultRelInfo);
 
             // close the relation itself
-            heap_close(cypher_node->resultRelInfo->ri_RelationDesc,
-                       RowExclusiveLock);
+            table_close(cypher_node->resultRelInfo->ri_RelationDesc,
+                        RowExclusiveLock);
         }
     }
 }
 
 static void rescan_cypher_create(CustomScanState *node)
 {
-    ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                    errmsg("cypher create clause cannot be rescaned"),
-                    errhint("its unsafe to use joins in a query with a Cypher CREATE clause")));
+    ereport(
+        ERROR,
+        (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+         errmsg("cypher create clause cannot be rescaned"),
+         errhint(
+             "its unsafe to use joins in a query with a Cypher CREATE clause")));
 }
 
 Node *create_cypher_create_plan_state(CustomScan *cscan)
@@ -304,7 +311,7 @@ Node *create_cypher_create_plan_state(CustomScan *cscan)
 
     // get the serialized data structure from the Const and deserialize it.
     c = linitial(cscan->custom_private);
-    serialized_data = (char *)c->constvalue;
+    serialized_data = (char *) c->constvalue;
     target_nodes = stringToNode(serialized_data);
 
     Assert(is_ag_node(target_nodes, cypher_create_target_nodes));
@@ -312,12 +319,12 @@ Node *create_cypher_create_plan_state(CustomScan *cscan)
     cypher_css->path_values = NIL;
     cypher_css->pattern = target_nodes->paths;
     cypher_css->flags = target_nodes->flags;
-    cypher_css->graph_oid = target_nodes->graph_oid;
+    cypher_css->graph_id = target_nodes->graph_id;
 
     cypher_css->css.ss.ps.type = T_CustomScanState;
     cypher_css->css.methods = &cypher_create_exec_methods;
 
-    return (Node *)cypher_css;
+    return (Node *) cypher_css;
 }
 
 /*
@@ -365,9 +372,10 @@ static void create_edge(cypher_create_custom_scan_state *css,
     }
     else
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                 errmsg("edge direction must be specified in a CREATE clause")));
+        ereport(
+            ERROR,
+            (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+             errmsg("edge direction must be specified in a CREATE clause")));
     }
 
     /*
@@ -430,6 +438,7 @@ static void create_edge(cypher_create_custom_scan_state *css,
             prev_path = lappend(prev_path, DatumGetPointer(result));
             css->path_values = list_concat(prev_path, css->path_values);
         }
+
         if (CYPHER_TARGET_NODE_IS_VARIABLE(node->flags))
         {
             scantuple->tts_values[node->tuple_position - 1] = result;
@@ -513,7 +522,8 @@ static Datum create_vertex(cypher_create_custom_scan_state *css,
             // make the vertex agtype
             result = make_vertex(
                 id, CStringGetDatum(node->label_name),
-                PointerGetDatum(scanTupleSlot->tts_values[node->prop_attr_num]));
+                PointerGetDatum(
+                    scanTupleSlot->tts_values[node->prop_attr_num]));
 
             // append to the path list
             if (CYPHER_TARGET_NODE_IN_PATH(node->flags))
@@ -551,12 +561,13 @@ static Datum create_vertex(cypher_create_custom_scan_state *css,
         v = get_ith_agtype_value_from_container(&a->root, 0);
 
         if (v->type != AGTV_VERTEX)
-            ereport(ERROR,
-                    (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                     errmsg("agtype must resolve to a vertex")));
+        {
+            ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                            errmsg("agtype must resolve to a vertex")));
+        }
 
         // extract the id agtype field
-        id_value = get_agtype_value_object_value(v, "id");
+        id_value = GET_AGTYPE_VALUE_OBJECT_VALUE(v, "id");
 
         // extract the graphid and cast to a Datum
         id = GRAPHID_GET_DATUM(id_value->val.int_value);
@@ -574,11 +585,13 @@ static Datum create_vertex(cypher_create_custom_scan_state *css,
          */
         if (!SAFE_TO_SKIP_EXISTENCE_CHECK(node->flags))
         {
-            if (!entity_exists(estate, css->graph_oid, DATUM_GET_GRAPHID(id)))
+            if (!entity_exists(estate, css->graph_id, DATUM_GET_GRAPHID(id)))
+            {
                 ereport(ERROR,
-                    (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-                     errmsg("vertex assigned to variable %s was deleted",
-                            node->variable_name)));
+                        (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+                         errmsg("vertex assigned to variable %s was deleted",
+                                node->variable_name)));
+            }
         }
 
         if (CYPHER_TARGET_NODE_IN_PATH(node->flags))
@@ -596,73 +609,4 @@ static Datum create_vertex(cypher_create_custom_scan_state *css,
     }
 
     return id;
-}
-
-/*
- * Find out if the entity still exists. This is for 'implicit' deletion
- * of an entity.
- */
-static bool entity_exists(EState *estate, Oid graph_oid, graphid id)
-{
-    label_cache_data *label;
-    ScanKeyData scan_keys[1];
-    TableScanDesc scan_desc;
-    HeapTuple tuple;
-    Relation rel;
-    bool result = true;
-
-    /*
-     * Extract the label id from the graph id and get the table name
-     * the entity is part of.
-     */
-    label = search_label_graph_id_cache(graph_oid, GET_LABEL_ID(id));
-
-    // Setup the scan key to be the graphid
-    ScanKeyInit(&scan_keys[0], 1, BTEqualStrategyNumber,
-                F_GRAPHIDEQ, GRAPHID_GET_DATUM(id));
-
-    rel = table_open(label->relation, RowExclusiveLock);
-    scan_desc = table_beginscan(rel, estate->es_snapshot, 1, scan_keys);
-
-    tuple = heap_getnext(scan_desc, ForwardScanDirection);
-
-    /*
-     * If a single tuple was returned, the tuple is still valid, otherwise'
-     * set to false.
-     */
-    if (!HeapTupleIsValid(tuple))
-        result = false;
-
-    table_endscan(scan_desc);
-    table_close(rel, RowExclusiveLock);
-
-    return result;
-}
-
-/*
- * Insert the edge/vertex tuple into the table and indices. If the table's
- * constraints have not been violated.
- */
-static HeapTuple insert_entity_tuple(ResultRelInfo *resultRelInfo,
-                                     TupleTableSlot *elemTupleSlot,
-                                     EState *estate)
-{
-    ExecStoreVirtualTuple(elemTupleSlot);
-    ExecMaterializeSlot(elemTupleSlot);
-
-    elemTupleSlot->tts_tableOid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
-
-    if (resultRelInfo->ri_RelationDesc->rd_att->constr != NULL)
-        ExecConstraints(resultRelInfo, elemTupleSlot, estate);
-
-    table_tuple_insert(resultRelInfo->ri_RelationDesc, elemTupleSlot,
-                        GetCurrentCommandId(true),
-                        0, NULL);
-
-    // Insert index entries for the tuple
-    if (resultRelInfo->ri_NumIndices > 0)
-        ExecInsertIndexTuples(elemTupleSlot, estate, false,
-                              NULL, NIL);
-
-    return ExecFetchSlotHeapTuple(elemTupleSlot, true, NULL);
 }

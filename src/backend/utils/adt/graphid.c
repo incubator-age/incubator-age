@@ -40,9 +40,8 @@ Datum graphid_in(PG_FUNCTION_ARGS)
     i = strtol(str, &endptr, 10);
     if (errno != 0 || endptr == str || *endptr != '\0')
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-                 errmsg("invalid value for type graphid: \"%s\"", str)));
+        ereport(ERROR, (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+                        errmsg("invalid value for type graphid: \"%s\"", str)));
     }
 
     AG_RETURN_GRAPHID(i);
@@ -131,18 +130,24 @@ Datum graphid_btree_cmp(PG_FUNCTION_ARGS)
     graphid rgid = AG_GETARG_GRAPHID(1);
 
     if (lgid > rgid)
+    {
         PG_RETURN_INT32(1);
+    }
     else if (lgid == rgid)
+    {
         PG_RETURN_INT32(0);
+    }
     else
+    {
         PG_RETURN_INT32(-1);
+    }
 }
 
 PG_FUNCTION_INFO_V1(graphid_btree_sort);
 
 Datum graphid_btree_sort(PG_FUNCTION_ARGS)
 {
-    SortSupport ssup = (SortSupport)PG_GETARG_POINTER(0);
+    SortSupport ssup = (SortSupport) PG_GETARG_POINTER(0);
 
     ssup->comparator = graphid_btree_fast_cmp;
     PG_RETURN_VOID();
@@ -154,11 +159,17 @@ static int graphid_btree_fast_cmp(Datum x, Datum y, SortSupport ssup)
     graphid rgid = DATUM_GET_GRAPHID(y);
 
     if (lgid > rgid)
+    {
         return 1;
+    }
     else if (lgid == rgid)
+    {
         return 0;
+    }
     else
+    {
         return -1;
+    }
 }
 
 graphid make_graphid(const int32 label_id, const int64 entry_id)
@@ -168,9 +179,10 @@ graphid make_graphid(const int32 label_id, const int64 entry_id)
     if (!label_id_is_valid(label_id))
     {
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                        errmsg("label_id must be %d .. %d",
-                               LABEL_ID_MIN, LABEL_ID_MAX)));
+                        errmsg("label_id must be %d .. %d", LABEL_ID_MIN,
+                               LABEL_ID_MAX)));
     }
+
     if (!entry_id_is_valid(entry_id))
     {
         ereport(ERROR,
@@ -179,20 +191,20 @@ graphid make_graphid(const int32 label_id, const int64 entry_id)
                         ENTRY_ID_MIN, ENTRY_ID_MAX)));
     }
 
-    tmp = (((uint64)label_id) << ENTRY_ID_BITS) |
-          (((uint64)entry_id) & ENTRY_ID_MASK);
+    tmp = (((uint64) label_id) << ENTRY_ID_BITS) |
+          (((uint64) entry_id) & ENTRY_ID_MASK);
 
-    return (graphid)tmp;
+    return (graphid) tmp;
 }
 
 int32 get_graphid_label_id(const graphid gid)
 {
-    return (int32)(((uint64)gid) >> ENTRY_ID_BITS);
+    return (int32) (((uint64) gid) >> ENTRY_ID_BITS);
 }
 
 int64 get_graphid_entry_id(const graphid gid)
 {
-    return (int64)(((uint64)gid) & ENTRY_ID_MASK);
+    return (int64) (((uint64) gid) & ENTRY_ID_MASK);
 }
 
 PG_FUNCTION_INFO_V1(_graphid);
@@ -208,6 +220,7 @@ Datum _graphid(PG_FUNCTION_ARGS)
         ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
                         errmsg("label_id and entry_id must not be null")));
     }
+
     label_id = PG_GETARG_INT32(0);
     entry_id = PG_GETARG_INT64(1);
 

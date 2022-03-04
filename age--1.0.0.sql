@@ -23,13 +23,13 @@
 --
 -- catalog tables
 --
+CREATE SEQUENCE IF NOT EXISTS ag_catalog._ag_graph_id_seq MINVALUE 1;
 
 CREATE TABLE ag_graph (
+  id INTEGER PRIMARY KEY DEFAULT nextval('ag_catalog._ag_graph_id_seq'),
   name name NOT NULL,
   namespace regnamespace NOT NULL
-) WITH (OIDS);
-
-CREATE UNIQUE INDEX ag_graph_oid_index ON ag_graph USING btree (oid);
+);
 
 CREATE UNIQUE INDEX ag_graph_name_index ON ag_graph USING btree (name);
 
@@ -44,13 +44,14 @@ CREATE DOMAIN label_kind AS "char" NOT NULL CHECK (VALUE = 'v' OR VALUE = 'e');
 
 CREATE TABLE ag_label (
   name name NOT NULL,
-  graph oid NOT NULL,
+  graph INTEGER NOT NULL,
   id label_id,
   kind label_kind,
-  relation regclass NOT NULL
-) WITH (OIDS);
-
-CREATE UNIQUE INDEX ag_label_oid_index ON ag_label USING btree (oid);
+  relation regclass NOT NULL,
+  CONSTRAINT fk_graph_id
+    FOREIGN KEY(graph)
+    REFERENCES ag_graph(id)
+);
 
 CREATE UNIQUE INDEX ag_label_name_graph_index
 ON ag_label
@@ -107,6 +108,21 @@ CREATE FUNCTION ag_catalog.drop_label(graph_name name, label_name name,
 RETURNS void
 LANGUAGE c
 AS 'MODULE_PATHNAME';
+
+CREATE FUNCTION ag_catalog.load_labels_from_file(graph_name name,
+                                            label_name name,
+                                            file_path text,
+                                            id_field_exists bool default true)
+    RETURNS void
+    LANGUAGE c
+    AS 'MODULE_PATHNAME';
+
+CREATE FUNCTION ag_catalog.load_edges_from_file(graph_name name,
+                                                label_name name,
+                                                file_path text)
+    RETURNS void
+    LANGUAGE c
+    AS 'MODULE_PATHNAME';
 
 --
 -- graphid type
@@ -3130,6 +3146,11 @@ RETURNS void
 LANGUAGE c
 AS 'MODULE_PATHNAME';
 
+CREATE FUNCTION ag_catalog._cypher_merge_clause(internal)
+RETURNS void
+LANGUAGE c
+AS 'MODULE_PATHNAME';
+
 --
 -- query functions
 --
@@ -3874,6 +3895,13 @@ CREATE FUNCTION ag_catalog.age_range(variadic "any")
 RETURNS agtype
 LANGUAGE c
 STABLE
+PARALLEL SAFE
+AS 'MODULE_PATHNAME';
+
+CREATE FUNCTION ag_catalog.age_unnest(agtype, block_types boolean = false)
+    RETURNS SETOF agtype
+    LANGUAGE c
+    STABLE
 PARALLEL SAFE
 AS 'MODULE_PATHNAME';
 

@@ -16,13 +16,13 @@
 # under the License.
 
 AlignAfterOpenBracket: Align
-AlignConsecutiveAssignments: false
-AlignConsecutiveDeclarations: false
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
 AlignEscapedNewlines: DontAlign
 AlignOperands: true
-AlignTrailingComments: false
+AlignTrailingComments: true
 AllowAllParametersOfDeclarationOnNextLine: false
-AllowShortBlocksOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: false
@@ -45,7 +45,7 @@ BreakBeforeBinaryOperators: None
 BreakBeforeBraces: Custom
 BreakBeforeTernaryOperators: false
 BreakStringLiterals: false
-ColumnLimit: 79
+ColumnLimit: 80
 CommentPragmas: ''
 ContinuationIndentWidth: 4
 Cpp11BracedListStyle: true
@@ -53,7 +53,6 @@ DerivePointerAlignment: false
 DisableFormat: false
 ForEachMacros:
   - 'foreach'
-IncludeCategories:
 IncludeIsMainRegex: '$'
 IndentCaseLabels: false
 IndentWidth: 4
@@ -70,9 +69,9 @@ PenaltyBreakString: 10
 PenaltyExcessCharacter: 100
 PenaltyReturnTypeOnItsOwnLine: 60
 PointerAlignment: Right
-ReflowComments: false
-SortIncludes: true
-SpaceAfterCStyleCast: false
+ReflowComments: true
+SortIncludes: CaseInsensitive
+SpaceAfterCStyleCast: true
 SpaceBeforeAssignmentOperators: true
 SpaceBeforeParens: ControlStatements
 SpaceInEmptyParentheses: false

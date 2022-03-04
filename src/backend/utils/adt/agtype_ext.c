@@ -35,7 +35,7 @@ static short ag_serialize_header(StringInfo buffer, uint32 type)
 
     padlen = pad_buffer_to_int(buffer);
     offset = reserve_from_buffer(buffer, AGT_HEADER_SIZE);
-    *((AGT_HEADER_TYPE *)(buffer->data + offset)) = type;
+    *((AGT_HEADER_TYPE *) (buffer->data + offset)) = type;
 
     return padlen;
 }
@@ -59,7 +59,7 @@ bool ag_serialize_extended_type(StringInfo buffer, agtentry *agtentry,
         /* copy in the int_value data */
         numlen = sizeof(int64);
         offset = reserve_from_buffer(buffer, numlen);
-        *((int64 *)(buffer->data + offset)) = scalar_val->val.int_value;
+        *((int64 *) (buffer->data + offset)) = scalar_val->val.int_value;
 
         *agtentry = AGTENTRY_IS_AGTYPE | (padlen + numlen + AGT_HEADER_SIZE);
         break;
@@ -70,13 +70,12 @@ bool ag_serialize_extended_type(StringInfo buffer, agtentry *agtentry,
         /* copy in the float_value data */
         numlen = sizeof(scalar_val->val.float_value);
         offset = reserve_from_buffer(buffer, numlen);
-        *((float8 *)(buffer->data + offset)) = scalar_val->val.float_value;
+        *((float8 *) (buffer->data + offset)) = scalar_val->val.float_value;
 
         *agtentry = AGTENTRY_IS_AGTYPE | (padlen + numlen + AGT_HEADER_SIZE);
         break;
 
-    case AGTV_VERTEX:
-    {
+    case AGTV_VERTEX: {
         uint32 object_ae = 0;
 
         padlen = ag_serialize_header(buffer, AGT_HEADER_VERTEX);
@@ -91,12 +90,11 @@ bool ag_serialize_extended_type(StringInfo buffer, agtentry *agtentry,
         object_ae += pad_buffer_to_int(buffer);
 
         *agtentry = AGTENTRY_IS_AGTYPE |
-                    ((AGTENTRY_OFFLENMASK & (int)object_ae) + AGT_HEADER_SIZE);
+                    ((AGTENTRY_OFFLENMASK & (int) object_ae) + AGT_HEADER_SIZE);
         break;
     }
 
-    case AGTV_EDGE:
-    {
+    case AGTV_EDGE: {
         uint32 object_ae = 0;
 
         padlen = ag_serialize_header(buffer, AGT_HEADER_EDGE);
@@ -111,12 +109,11 @@ bool ag_serialize_extended_type(StringInfo buffer, agtentry *agtentry,
         object_ae += pad_buffer_to_int(buffer);
 
         *agtentry = AGTENTRY_IS_AGTYPE |
-                    ((AGTENTRY_OFFLENMASK & (int)object_ae) + AGT_HEADER_SIZE);
+                    ((AGTENTRY_OFFLENMASK & (int) object_ae) + AGT_HEADER_SIZE);
         break;
     }
 
-    case AGTV_PATH:
-    {
+    case AGTV_PATH: {
         uint32 object_ae = 0;
 
         padlen = ag_serialize_header(buffer, AGT_HEADER_PATH);
@@ -131,7 +128,7 @@ bool ag_serialize_extended_type(StringInfo buffer, agtentry *agtentry,
         object_ae += pad_buffer_to_int(buffer);
 
         *agtentry = AGTENTRY_IS_AGTYPE |
-                    ((AGTENTRY_OFFLENMASK & (int)object_ae) + AGT_HEADER_SIZE);
+                    ((AGTENTRY_OFFLENMASK & (int) object_ae) + AGT_HEADER_SIZE);
         break;
     }
 
@@ -150,18 +147,18 @@ void ag_deserialize_extended_type(char *base_addr, uint32 offset,
                                   agtype_value *result)
 {
     char *base = base_addr + INTALIGN(offset);
-    AGT_HEADER_TYPE agt_header = *((AGT_HEADER_TYPE *)base);
+    AGT_HEADER_TYPE agt_header = *((AGT_HEADER_TYPE *) base);
 
     switch (agt_header)
     {
     case AGT_HEADER_INTEGER:
         result->type = AGTV_INTEGER;
-        result->val.int_value = *((int64 *)(base + AGT_HEADER_SIZE));
+        result->val.int_value = *((int64 *) (base + AGT_HEADER_SIZE));
         break;
 
     case AGT_HEADER_FLOAT:
         result->type = AGTV_FLOAT;
-        result->val.float_value = *((float8 *)(base + AGT_HEADER_SIZE));
+        result->val.float_value = *((float8 *) (base + AGT_HEADER_SIZE));
         break;
 
     case AGT_HEADER_VERTEX:
@@ -192,12 +189,12 @@ static void ag_deserialize_composite(char *base, enum agtype_value_type type,
     agtype_parse_state *parse_state = NULL;
     agtype_value *r = NULL;
     agtype_value *parsed_agtype_value = NULL;
-    //offset container by the extended type header
+    // offset container by the extended type header
     char *container_base = base + AGT_HEADER_SIZE;
 
     r = palloc(sizeof(agtype_value));
 
-    it = agtype_iterator_init((agtype_container *)container_base);
+    it = agtype_iterator_init((agtype_container *) container_base);
     while ((tok = agtype_iterator_next(&it, r, true)) != WAGT_DONE)
     {
         parsed_agtype_value = push_agtype_value(

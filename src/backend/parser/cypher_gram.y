@@ -77,7 +77,7 @@
 %token NOT_EQ LT_EQ GT_EQ DOT_DOT TYPECAST PLUS_EQ EQ_TILDE
 
 /* keywords in alphabetical order */
-%token <keyword> ANALYZE AND AS ASC ASCENDING
+%token <keyword> ALL ANALYZE AND AS ASC ASCENDING
                  BY
                  CASE COALESCE CONTAINS CREATE
                  DELETE DESC DESCENDING DETACH DISTINCT
@@ -85,18 +85,20 @@
                  FALSE_P
                  IN IS
                  LIMIT
-                 MATCH
+                 MATCH MERGE
                  NOT NULL_P
-                 OR ORDER
+                 OPTIONAL OR ORDER
                  REMOVE RETURN
                  SET SKIP STARTS
                  THEN TRUE_P
+                 UNION UNWIND
                  VERBOSE
                  WHEN WHERE WITH
                  XOR
 
 /* query */
-%type <list> single_query query_part_init query_part_last
+%type <node> stmt
+%type <list> single_query query_part_init query_part_last query_list
              reading_clause_list updating_clause_list_0 updating_clause_list_1
 %type <node> reading_clause updating_clause
 
@@ -109,8 +111,13 @@
 %type <node> match cypher_varlen_opt cypher_range_opt cypher_range_idx
              cypher_range_idx_opt
 %type <integer> Iconst
+%type <boolean> optional_opt
+
 /* CREATE clause */
 %type <node> create
+
+/* UNWIND clause */
+%type <node> unwind
 
 /* SET and REMOVE clause */
 %type <node> set set_item remove remove_item
@@ -119,6 +126,9 @@
 /* DELETE clause */
 %type <node> delete
 %type <boolean> detach_opt
+
+/* MERGE clause */
+%type <node> merge
 
 /* common */
 %type <node> where_opt
@@ -147,6 +157,7 @@
 %type <list> func_name
 
 /* precedence: lowest to highest */
+%left UNION
 %left OR
 %left AND
 %left XOR
@@ -161,6 +172,9 @@
 %left '[' ']' '(' ')'
 %left '.'
 %left TYPECAST
+
+/*set operations*/
+%type <boolean> all_or_distinct
 
 %{
 //
@@ -202,7 +216,7 @@ static Node *make_function_expr(List *func_name, List *exprs, int location);
  */
 
 stmt:
-    single_query semicolon_opt
+    query_list semicolon_opt
         {
             /*
              * If there is no transition for the lookahead token and the
@@ -223,7 +237,7 @@ stmt:
             extra->result = $1;
             extra->extra = NULL;
         }
-    | EXPLAIN single_query semicolon_opt
+    | EXPLAIN query_list semicolon_opt
         {
             ExplainStmt *estmt = NULL;
 
@@ -237,7 +251,7 @@ stmt:
             estmt->options = NIL;
             extra->extra = (Node *)estmt;
         }
-    | EXPLAIN VERBOSE single_query semicolon_opt
+    | EXPLAIN VERBOSE query_list semicolon_opt
         {
             ExplainStmt *estmt = NULL;
 
@@ -251,7 +265,7 @@ stmt:
             estmt->options = list_make1(makeDefElem("verbose", NULL, @2));;
             extra->extra = (Node *)estmt;
         }
-    | EXPLAIN ANALYZE single_query semicolon_opt
+    | EXPLAIN ANALYZE query_list semicolon_opt
         {
             ExplainStmt *estmt = NULL;
 
@@ -265,7 +279,7 @@ stmt:
             estmt->options = list_make1(makeDefElem("analyze", NULL, @2));;
             extra->extra = (Node *)estmt;
         }
-    | EXPLAIN ANALYZE VERBOSE single_query semicolon_opt
+    | EXPLAIN ANALYZE VERBOSE query_list semicolon_opt
         {
             ExplainStmt *estmt = NULL;
 
@@ -282,10 +296,42 @@ stmt:
         }
     ;
 
+query_list:
+    single_query
+        {
+            $$ = $1;
+        }
+    | single_query UNION all_or_distinct query_list
+        {
+            cypher_union *u = make_ag_node(cypher_union);
+
+            u->all_or_distinct = $3;
+            u->op = SETOP_UNION;
+            u->larg = $1;
+            u->rarg = $4;
+
+            $$ = list_make1((Node *) u);
+        }
+    ;
+
 semicolon_opt:
     /* empty */
     | ';'
     ;
+
+all_or_distinct:
+    ALL
+    {
+        $$ = true;
+    }
+    | DISTINCT
+    {
+        $$ = false;
+    }
+    | /*EMPTY*/
+    {
+        $$ = false;
+    }
 
 /*
  * The overall structure of single_query looks like below.
@@ -335,6 +381,7 @@ reading_clause_list:
 
 reading_clause:
     match
+    | unwind
     ;
 
 updating_clause_list_0:
@@ -361,6 +408,7 @@ updating_clause:
     | set
     | remove
     | delete
+    | merge
     ;
 
 cypher_varlen_opt:
@@ -671,17 +719,46 @@ with:
  */
 
 match:
-    MATCH pattern where_opt
+    optional_opt MATCH pattern where_opt
         {
             cypher_match *n;
 
             n = make_ag_node(cypher_match);
-            n->pattern = $2;
-            n->where = $3;
+            n->optional = $1;
+            n->pattern = $3;
+            n->where = $4;
 
             $$ = (Node *)n;
         }
     ;
+
+optional_opt:
+    OPTIONAL
+        {
+            $$ = true;
+        }
+    | /* EMPTY */
+        {
+            $$ = false;
+        }
+    ;
+
+
+unwind:
+    UNWIND expr AS var_name
+        {
+            ResTarget  *res;
+            cypher_unwind *n;
+
+            res = makeNode(ResTarget);
+            res->name = $4;
+            res->val = (Node *) $2;
+            res->location = @2;
+
+            n = make_ag_node(cypher_unwind);
+            n->target = res;
+            $$ = (Node *) n;
+        }
 
 /*
  * CREATE clause
@@ -820,6 +897,21 @@ detach_opt:
     | /* EMPTY */
         {
             $$ = false;
+        }
+    ;
+
+/*
+ * MERGE clause
+ */
+merge:
+    MERGE path
+        {
+            cypher_merge *n;
+
+            n = make_ag_node(cypher_merge);
+            n->path = $2;
+
+            $$ = (Node *)n;
         }
     ;
 
@@ -1740,8 +1832,9 @@ reserved_keyword:
  */
 
 safe_keywords:
-    AND          { $$ = pnstrdup($1, 3); }
+    ALL          { $$ = pnstrdup($1, 3); }
     | ANALYZE    { $$ = pnstrdup($1, 7); }
+    | AND        { $$ = pnstrdup($1, 3); }
     | AS         { $$ = pnstrdup($1, 2); }
     | ASC        { $$ = pnstrdup($1, 3); }
     | ASCENDING  { $$ = pnstrdup($1, 9); }
@@ -1763,7 +1856,9 @@ safe_keywords:
     | IS         { $$ = pnstrdup($1, 2); }
     | LIMIT      { $$ = pnstrdup($1, 6); }
     | MATCH      { $$ = pnstrdup($1, 6); }
+    | MERGE      { $$ = pnstrdup($1, 6); }
     | NOT        { $$ = pnstrdup($1, 3); }
+    | OPTIONAL   { $$ = pnstrdup($1, 8); }
     | OR         { $$ = pnstrdup($1, 2); }
     | ORDER      { $$ = pnstrdup($1, 5); }
     | REMOVE     { $$ = pnstrdup($1, 6); }
@@ -1772,6 +1867,7 @@ safe_keywords:
     | SKIP       { $$ = pnstrdup($1, 4); }
     | STARTS     { $$ = pnstrdup($1, 6); }
     | THEN       { $$ = pnstrdup($1, 4); }
+    | UNION      { $$ = pnstrdup($1, 5); }
     | WHEN       { $$ = pnstrdup($1, 4); }
     | VERBOSE    { $$ = pnstrdup($1, 7); }
     | WHERE      { $$ = pnstrdup($1, 5); }

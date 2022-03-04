@@ -129,9 +129,9 @@ $$) AS t(a agtype, b agtype, c agtype);
 SELECT * FROM cypher('scan', $$
 RETURN 077777777777777777777, 01777777777777777777777
 $$) AS t(a agtype, b agtype);
-          a          |          b           
----------------------+----------------------
- 1152921504606846975 | 1.84467440737096e+19
+          a          |           b            
+---------------------+------------------------
+ 1152921504606846975 | 1.8446744073709552e+19
 (1 row)
 
 -- an invalid character after reading valid digits
@@ -198,9 +198,9 @@ $$) AS t(a agtype, b agtype, c agtype);
 SELECT * FROM cypher('scan', $$
 RETURN 0xde0b6b3a7640000, 0xffffffffffffffff
 $$) AS t(a agtype, b agtype);
-          a          |          b           
----------------------+----------------------
- 1000000000000000000 | 1.84467440737096e+19
+          a          |           b            
+---------------------+------------------------
+ 1000000000000000000 | 1.8446744073709552e+19
 (1 row)
 
 -- an invalid character after reading valid digits

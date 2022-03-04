@@ -29,7 +29,7 @@
  * Deserialization functions for AGE's ExtensibleNodes. We assign
  * each node to its deserialization functionin the DEFINE_NODE_METHODS
  * and DEFINE_NODE_METHODS_EXTENDED macros in ag_nodes.c.
-
+ *
  *
  * All functions are dependent on the pg_strtok function. We do not
  * setup pg_strtok. That is for the the caller to do. By default that
@@ -51,5 +51,7 @@ void read_cypher_update_item(struct ExtensibleNode *node);
 // delete data structures
 void read_cypher_delete_information(struct ExtensibleNode *node);
 void read_cypher_delete_item(struct ExtensibleNode *node);
+
+void read_cypher_merge_information(struct ExtensibleNode *node);
 
 #endif
