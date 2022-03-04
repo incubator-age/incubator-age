@@ -456,7 +456,6 @@ static TupleTableSlot *exec_cypher_merge(CustomScanState *node)
              */
             ExprContext *econtext = node->ss.ps.ps_ExprContext;
             SubqueryScanState *sss = (SubqueryScanState *) node->ss.ps.lefttree;
-            HeapTuple heap_tuple;
 
             /*
              * Our child execution node is always a subquery. If not there
