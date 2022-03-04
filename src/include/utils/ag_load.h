@@ -56,5 +56,4 @@
 #include "utils/agtype.h"
 #include "utils/graphid.h"
 
-
-#endif //INCUBATOR_AGE_AG_LOAD_H
+#endif // INCUBATOR_AGE_AG_LOAD_H

@@ -31,16 +31,16 @@
 /* cypher sub patterns */
 typedef enum csp_kind
 {
-        CSP_EXISTS,
-        CSP_SIZE,
-        CSP_FINDPATH /* shortestpath, allshortestpaths, dijkstra */
+    CSP_EXISTS,
+    CSP_SIZE,
+    CSP_FINDPATH /* shortestpath, allshortestpaths, dijkstra */
 } csp_kind;
 
 typedef struct cypher_sub_pattern
 {
-        ExtensibleNode extensible;
-        csp_kind kind;
-        List *pattern;
+    ExtensibleNode extensible;
+    csp_kind kind;
+    List *pattern;
 } cypher_sub_pattern;
 
 /*
@@ -72,7 +72,7 @@ typedef struct cypher_match
 {
     ExtensibleNode extensible;
     List *pattern; // a list of cypher_paths
-    Node *where; // optional WHERE subclause (expression)
+    Node *where;   // optional WHERE subclause (expression)
     bool optional; // OPTIONAL MATCH
 } cypher_match;
 
@@ -85,7 +85,7 @@ typedef struct cypher_create
 typedef struct cypher_set
 {
     ExtensibleNode extensible;
-    List *items; // a list of cypher_set_items
+    List *items;    // a list of cypher_set_items
     bool is_remove; // true if this is REMOVE clause
     int location;
 } cypher_set;
@@ -93,8 +93,8 @@ typedef struct cypher_set
 typedef struct cypher_set_item
 {
     ExtensibleNode extensible;
-    Node *prop; // LHS
-    Node *expr; // RHS
+    Node *prop;  // LHS
+    Node *expr;  // RHS
     bool is_add; // true if this is +=
     int location;
 } cypher_set_item;
@@ -163,7 +163,7 @@ typedef struct cypher_relationship
     ExtensibleNode extensible;
     char *name;
     char *label;
-    Node *props; // map or parameter
+    Node *props;  // map or parameter
     Node *varlen; // variable length relationships (A_Indices)
     cypher_rel_dir dir;
     int location;
@@ -229,7 +229,7 @@ typedef struct cypher_create_target_nodes
     ExtensibleNode extensible;
     List *paths;
     uint32 flags;
-    Oid graph_oid;
+    uint32 graph_id;
 } cypher_create_target_nodes;
 
 typedef struct cypher_create_path
@@ -244,11 +244,10 @@ typedef struct cypher_create_path
 #define CYPHER_CLAUSE_FLAG_TERMINAL 0x0001
 #define CYPHER_CLAUSE_FLAG_PREVIOUS_CLAUSE 0x0002
 
-#define CYPHER_CLAUSE_IS_TERMINAL(flags) \
-    (flags & CYPHER_CLAUSE_FLAG_TERMINAL)
+#define CYPHER_CLAUSE_IS_TERMINAL(flags) ((flags) &CYPHER_CLAUSE_FLAG_TERMINAL)
 
 #define CYPHER_CLAUSE_HAS_PREVIOUS_CLAUSE(flags) \
-    (flags & CYPHER_CLAUSE_FLAG_PREVIOUS_CLAUSE)
+    ((flags) &CYPHER_CLAUSE_FLAG_PREVIOUS_CLAUSE)
 
 /*
  * Structure that contains all information to create
@@ -315,7 +314,7 @@ typedef struct cypher_target_node
  */
 #define EXISTING_VARAIBLE_DECLARED_SAME_CLAUSE 0x0002
 
-//node is the first instance of a declared variable
+// node is the first instance of a declared variable
 #define CYPHER_TARGET_NODE_IS_VAR 0x0004
 // node is an element in a path variable
 #define CYPHER_TARGET_NODE_IN_PATH_VAR 0x0008
@@ -323,28 +322,29 @@ typedef struct cypher_target_node
 #define CYPHER_TARGET_NODE_MERGE_EXISTS 0x0010
 
 #define CYPHER_TARGET_NODE_OUTPUT(flags) \
-    (flags & (CYPHER_TARGET_NODE_IS_VAR | CYPHER_TARGET_NODE_IN_PATH_VAR))
+    ((flags) & (CYPHER_TARGET_NODE_IS_VAR | CYPHER_TARGET_NODE_IN_PATH_VAR))
 
 #define CYPHER_TARGET_NODE_IN_PATH(flags) \
-    (flags & CYPHER_TARGET_NODE_IN_PATH_VAR)
+    ((flags) &CYPHER_TARGET_NODE_IN_PATH_VAR)
 
 #define CYPHER_TARGET_NODE_IS_VARIABLE(flags) \
-    (flags & CYPHER_TARGET_NODE_IS_VAR)
+    ((flags) &CYPHER_TARGET_NODE_IS_VAR)
 
 /*
  * When a vertex is created and is reference in the same clause
  * later. We don't need to check to see if the vertex still exists.
  */
 #define SAFE_TO_SKIP_EXISTENCE_CHECK(flags) \
-    (flags & EXISTING_VARAIBLE_DECLARED_SAME_CLAUSE)
+    ((flags) &EXISTING_VARAIBLE_DECLARED_SAME_CLAUSE)
 
 #define CYPHER_TARGET_NODE_INSERT_ENTITY(flags) \
-    (flags & CYPHER_TARGET_NODE_FLAG_INSERT)
+    ((flags) &CYPHER_TARGET_NODE_FLAG_INSERT)
 
 #define UPDATE_CLAUSE_SET "SET"
 #define UPDATE_CLAUSE_REMOVE "REMOVE"
 
-/* Data Structures that contain information about a vertices and edges the need to be updated */
+/* Data Structures that contain information about a vertices and edges the need
+ * to be updated */
 typedef struct cypher_update_information
 {
     ExtensibleNode extensible;
@@ -372,7 +372,7 @@ typedef struct cypher_delete_information
     List *delete_items;
     int flags;
     char *graph_name;
-    Oid graph_oid;
+    uint32 graph_id;
     bool detach;
 } cypher_delete_information;
 
@@ -387,7 +387,7 @@ typedef struct cypher_merge_information
 {
     ExtensibleNode extensible;
     int flags;
-    Oid graph_oid;
+    uint32 graph_id;
     AttrNumber merge_function_attr;
     cypher_create_path *path;
 } cypher_merge_information;

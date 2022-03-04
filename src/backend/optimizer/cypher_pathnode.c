@@ -28,8 +28,8 @@
 
 const CustomPathMethods cypher_create_path_methods = {
     CREATE_PATH_NAME, plan_cypher_create_path, NULL};
-const CustomPathMethods cypher_set_path_methods = {
-    SET_PATH_NAME, plan_cypher_set_path, NULL};
+const CustomPathMethods cypher_set_path_methods = {SET_PATH_NAME,
+                                                   plan_cypher_set_path, NULL};
 const CustomPathMethods cypher_delete_path_methods = {
     DELETE_PATH_NAME, plan_cypher_delete_path, NULL};
 const CustomPathMethods cypher_merge_path_methods = {
@@ -54,7 +54,7 @@ CustomPath *create_cypher_create_path(PlannerInfo *root, RelOptInfo *rel,
     cp->path.parallel_safe = false;
     cp->path.parallel_workers = 0;
 
-    cp->path.rows = 0; // Basic CREATE will not return rows
+    cp->path.rows = 0;         // Basic CREATE will not return rows
     cp->path.startup_cost = 0; // Basic CREATE will not fetch any pages
     cp->path.total_cost = 0;
 
@@ -90,7 +90,7 @@ CustomPath *create_cypher_set_path(PlannerInfo *root, RelOptInfo *rel,
     cp->path.parallel_safe = false;
     cp->path.parallel_workers = 0;
 
-    cp->path.rows = 0; // Basic SET will not return rows
+    cp->path.rows = 0;         // Basic SET will not return rows
     cp->path.startup_cost = 0; // Basic SET will not fetch any pages
     cp->path.total_cost = 0;
 
@@ -112,7 +112,7 @@ CustomPath *create_cypher_set_path(PlannerInfo *root, RelOptInfo *rel,
  * path. We leave it to the caller to replace the pathlist of the rel.
  */
 CustomPath *create_cypher_delete_path(PlannerInfo *root, RelOptInfo *rel,
-                                   List *custom_private)
+                                      List *custom_private)
 {
     CustomPath *cp;
 
@@ -155,7 +155,7 @@ CustomPath *create_cypher_delete_path(PlannerInfo *root, RelOptInfo *rel,
  * path. We leave it to the caller to replace the pathlist of the rel.
  */
 CustomPath *create_cypher_merge_path(PlannerInfo *root, RelOptInfo *rel,
-                                   List *custom_private)
+                                     List *custom_private)
 {
     CustomPath *cp;
 

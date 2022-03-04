@@ -29,8 +29,8 @@
 #include "utils/agtype.h"
 
 // declaration of a useful postgres macro that isn't in a header file
-#define DatumGetItemPointer(X)	 ((ItemPointer) DatumGetPointer(X))
-#define ItemPointerGetDatum(X)	 PointerGetDatum(X)
+#define DatumGetItemPointer(X) ((ItemPointer) DatumGetPointer(X))
+#define ItemPointerGetDatum(X) PointerGetDatum(X)
 
 /*
  * When executing the children of the CREATE, SET, REMOVE, and
@@ -41,11 +41,11 @@
  */
 #define Increment_Estate_CommandId(estate) \
     estate->es_output_cid++; \
-    estate->es_snapshot->curcid++;
+    estate->es_snapshot->curcid++
 
 #define Decrement_Estate_CommandId(estate) \
     estate->es_output_cid--; \
-    estate->es_snapshot->curcid--;
+    estate->es_snapshot->curcid--
 
 typedef struct cypher_create_custom_scan_state
 {
@@ -55,7 +55,7 @@ typedef struct cypher_create_custom_scan_state
     List *path_values;
     uint32 flags;
     TupleTableSlot *slot;
-    Oid graph_oid;
+    uint32 graph_id;
 } cypher_create_custom_scan_state;
 
 typedef struct cypher_set_custom_scan_state
@@ -83,22 +83,24 @@ typedef struct cypher_merge_custom_scan_state
     int flags;
     cypher_create_path *path;
     List *path_values;
-    Oid graph_oid;
+    uint32 graph_id;
     AttrNumber merge_function_attr;
     bool created_new_path;
     bool found_a_path;
 } cypher_merge_custom_scan_state;
 
-TupleTableSlot *populate_vertex_tts(TupleTableSlot *elemTupleSlot, agtype_value *id, agtype_value *properties);
-TupleTableSlot *populate_edge_tts(
-    TupleTableSlot *elemTupleSlot, agtype_value *id, agtype_value *startid,
-    agtype_value *endid, agtype_value *properties);
+TupleTableSlot *populate_vertex_tts(TupleTableSlot *elemTupleSlot,
+                                    agtype_value *id, agtype_value *properties);
+TupleTableSlot *populate_edge_tts(TupleTableSlot *elemTupleSlot,
+                                  agtype_value *id, agtype_value *startid,
+                                  agtype_value *endid,
+                                  agtype_value *properties);
 
-ResultRelInfo *create_entity_result_rel_info(EState *estate, char *graph_name, char *label_name);
+ResultRelInfo *create_entity_result_rel_info(EState *estate, char *graph_name,
+                                             char *label_name);
 
-bool entity_exists(EState *estate, Oid graph_oid, graphid id);
+bool entity_exists(EState *estate, uint32 graph_id, graphid id);
 HeapTuple insert_entity_tuple(ResultRelInfo *resultRelInfo,
-                              TupleTableSlot *elemTupleSlot,
-                              EState *estate);
+                              TupleTableSlot *elemTupleSlot, EState *estate);
 
 #endif

@@ -6,20 +6,24 @@
  *
  * Portions Copyright (c) 1994, The Regents of the University of California
  *
- * Permission to use, copy, modify, and distribute this software and its documentation for any purpose,
- * without fee, and without a written agreement is hereby granted, provided that the above copyright notice
- * and this paragraph and the following two paragraphs appear in all copies.
+ * Permission to use, copy, modify, and distribute this software and its
+ * documentation for any purpose, without fee, and without a written agreement
+ * is hereby granted, provided that the above copyright notice and this
+ * paragraph and the following two paragraphs appear in all copies.
  *
- * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS,
- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY
- * OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
+ * DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING
+ * LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION,
+ * EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  *
- * THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING,
- * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ * FITNESS FOR A PARTICULAR PURPOSE.
  *
- * THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA
- * HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF
+ * CALIFORNIA HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+ * ENHANCEMENTS, OR MODIFICATIONS.
  */
 
 #include "postgres.h"
@@ -35,13 +39,13 @@ static void errpos_ecb(void *arg);
 // NOTE: sync the logic with make_parsestate()
 cypher_parsestate *make_cypher_parsestate(cypher_parsestate *parent_cpstate)
 {
-    ParseState *parent_pstate = (ParseState *)parent_cpstate;
+    ParseState *parent_pstate = (ParseState *) parent_cpstate;
     cypher_parsestate *cpstate;
     ParseState *pstate;
 
     cpstate = palloc0(sizeof(*cpstate));
 
-    pstate = (ParseState *)cpstate;
+    pstate = (ParseState *) cpstate;
 
     /* Fill in fields that don't start at null/false/zero */
     pstate->parentParseState = parent_pstate;
@@ -59,7 +63,7 @@ cypher_parsestate *make_cypher_parsestate(cypher_parsestate *parent_cpstate)
         pstate->p_ref_hook_state = parent_pstate->p_ref_hook_state;
 
         cpstate->graph_name = parent_cpstate->graph_name;
-        cpstate->graph_oid = parent_cpstate->graph_oid;
+        cpstate->graph_id = parent_cpstate->graph_id;
         cpstate->params = parent_cpstate->params;
     }
 
@@ -68,7 +72,7 @@ cypher_parsestate *make_cypher_parsestate(cypher_parsestate *parent_cpstate)
 
 void free_cypher_parsestate(cypher_parsestate *cpstate)
 {
-    free_parsestate((ParseState *)cpstate);
+    free_parsestate((ParseState *) cpstate);
 }
 
 void setup_errpos_ecb(errpos_ecb_state *ecb_state, ParseState *pstate,
@@ -98,7 +102,9 @@ static void errpos_ecb(void *arg)
     int query_pos;
 
     if (geterrcode() == ERRCODE_QUERY_CANCELED)
+    {
         return;
+    }
 
     Assert(ecb_state->query_loc > -1);
     query_pos = pg_mbstrlen_with_len(ecb_state->pstate->p_sourcetext,
@@ -113,13 +119,17 @@ RangeTblEntry *find_rte(cypher_parsestate *cpstate, char *varname)
 
     foreach (lc, pstate->p_rtable)
     {
-        RangeTblEntry *rte = (RangeTblEntry *)lfirst(lc);
+        RangeTblEntry *rte = (RangeTblEntry *) lfirst(lc);
         Alias *alias = rte->alias;
         if (!alias)
+        {
             continue;
+        }
 
         if (!strcmp(alias->aliasname, varname))
+        {
             return rte;
+        }
     }
 
     return NULL;

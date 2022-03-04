@@ -19,8 +19,8 @@
 
 #include "postgres.h"
 
-#include "utils/graphid.h"
 #include "utils/age_graphid_ds.h"
+#include "utils/graphid.h"
 
 /* defines */
 /*
@@ -227,7 +227,6 @@ graphid pop_graphid_stack(ListGraphId *stack)
     {
         elog(ERROR, "pop_graphid_stack: empty stack");
     }
-
 
     /* remove the element from the top of the stack */
     node = stack->head;

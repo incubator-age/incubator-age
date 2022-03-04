@@ -85,14 +85,15 @@ static char *get_string_from_agtype_value(agtype_value *agtv, int *length)
             *length += 2;
             string = str;
         }
+
         return string;
     case AGTV_STRING:
         *length = agtv->val.string.len;
         return agtv->val.string.val;
 
     case AGTV_NUMERIC:
-        string = DatumGetCString(DirectFunctionCall1(numeric_out,
-                     PointerGetDatum(agtv->val.numeric)));
+        string = DatumGetCString(DirectFunctionCall1(
+            numeric_out, PointerGetDatum(agtv->val.numeric)));
         *length = strlen(string);
         return string;
 
@@ -132,9 +133,12 @@ bool is_numeric_result(agtype_value *lhs, agtype_value *rhs)
 {
     if (((lhs->type == AGTV_NUMERIC || rhs->type == AGTV_NUMERIC) &&
          (lhs->type == AGTV_INTEGER || lhs->type == AGTV_FLOAT ||
-          rhs->type == AGTV_INTEGER || rhs->type == AGTV_FLOAT )) ||
+          rhs->type == AGTV_INTEGER || rhs->type == AGTV_FLOAT)) ||
         (lhs->type == AGTV_NUMERIC && rhs->type == AGTV_NUMERIC))
+    {
         return true;
+    }
+
     return false;
 }
 
@@ -159,7 +163,9 @@ Datum agtype_add(PG_FUNCTION_ARGS)
             (AGT_ROOT_IS_OBJECT(lhs) && AGT_ROOT_IS_SCALAR(rhs)) ||
             /* It can't be two objects */
             (AGT_ROOT_IS_OBJECT(lhs) && AGT_ROOT_IS_OBJECT(rhs)))
+        {
             ereport_op_str("+", lhs, rhs);
+        }
 
         agt = AGTYPE_P_GET_DATUM(agtype_concat(lhs, rhs));
 
@@ -228,9 +234,12 @@ Datum agtype_add(PG_FUNCTION_ARGS)
         agtv_result.val.numeric = DatumGetNumeric(numd);
     }
     else
+    {
         /* Not a covered case, error out */
-        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                        errmsg("Invalid input parameter types for agtype_add")));
+        ereport(ERROR,
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg("Invalid input parameter types for agtype_add")));
+    }
 
     AG_RETURN_AGTYPE_P(agtype_value_to_agtype(&agtv_result));
 }
@@ -253,7 +262,7 @@ Datum agtype_any_add(PG_FUNCTION_ARGS)
     }
 
     result = DirectFunctionCall2(agtype_add, AGTYPE_P_GET_DATUM(lhs),
-                                             AGTYPE_P_GET_DATUM(rhs));
+                                 AGTYPE_P_GET_DATUM(rhs));
 
     AG_RETURN_AGTYPE_P(DATUM_GET_AGTYPE_P(result));
 }
@@ -319,8 +328,11 @@ Datum agtype_sub(PG_FUNCTION_ARGS)
         agtv_result.val.numeric = DatumGetNumeric(numd);
     }
     else
-        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                        errmsg("Invalid input parameter types for agtype_sub")));
+    {
+        ereport(ERROR,
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg("Invalid input parameter types for agtype_sub")));
+    }
 
     AG_RETURN_AGTYPE_P(agtype_value_to_agtype(&agtv_result));
 }
@@ -343,7 +355,7 @@ Datum agtype_any_sub(PG_FUNCTION_ARGS)
     }
 
     result = DirectFunctionCall2(agtype_sub, AGTYPE_P_GET_DATUM(lhs),
-                                             AGTYPE_P_GET_DATUM(rhs));
+                                 AGTYPE_P_GET_DATUM(rhs));
 
     AG_RETURN_AGTYPE_P(DATUM_GET_AGTYPE_P(result));
 }
@@ -390,8 +402,10 @@ Datum agtype_neg(PG_FUNCTION_ARGS)
         agtv_result.val.numeric = DatumGetNumeric(numd);
     }
     else
+    {
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                         errmsg("Invalid input parameter type for agtype_neg")));
+    }
 
     AG_RETURN_AGTYPE_P(agtype_value_to_agtype(&agtv_result));
 }
@@ -457,8 +471,11 @@ Datum agtype_mul(PG_FUNCTION_ARGS)
         agtv_result.val.numeric = DatumGetNumeric(numd);
     }
     else
-        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                        errmsg("Invalid input parameter types for agtype_mul")));
+    {
+        ereport(ERROR,
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg("Invalid input parameter types for agtype_mul")));
+    }
 
     AG_RETURN_AGTYPE_P(agtype_value_to_agtype(&agtv_result));
 }
@@ -481,7 +498,7 @@ Datum agtype_any_mul(PG_FUNCTION_ARGS)
     }
 
     result = DirectFunctionCall2(agtype_mul, AGTYPE_P_GET_DATUM(lhs),
-                                             AGTYPE_P_GET_DATUM(rhs));
+                                 AGTYPE_P_GET_DATUM(rhs));
 
     AG_RETURN_AGTYPE_P(DATUM_GET_AGTYPE_P(result));
 }
@@ -575,10 +592,13 @@ Datum agtype_div(PG_FUNCTION_ARGS)
         agtv_result.val.numeric = DatumGetNumeric(numd);
     }
     else
-        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                        errmsg("Invalid input parameter types for agtype_div")));
+    {
+        ereport(ERROR,
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg("Invalid input parameter types for agtype_div")));
+    }
 
-     AG_RETURN_AGTYPE_P(agtype_value_to_agtype(&agtv_result));
+    AG_RETURN_AGTYPE_P(agtype_value_to_agtype(&agtv_result));
 }
 
 PG_FUNCTION_INFO_V1(agtype_any_div);
@@ -599,7 +619,7 @@ Datum agtype_any_div(PG_FUNCTION_ARGS)
     }
 
     result = DirectFunctionCall2(agtype_div, AGTYPE_P_GET_DATUM(lhs),
-                                             AGTYPE_P_GET_DATUM(rhs));
+                                 AGTYPE_P_GET_DATUM(rhs));
 
     AG_RETURN_AGTYPE_P(DATUM_GET_AGTYPE_P(result));
 }
@@ -665,8 +685,11 @@ Datum agtype_mod(PG_FUNCTION_ARGS)
         agtv_result.val.numeric = DatumGetNumeric(numd);
     }
     else
-        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                        errmsg("Invalid input parameter types for agtype_mod")));
+    {
+        ereport(ERROR,
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg("Invalid input parameter types for agtype_mod")));
+    }
 
     AG_RETURN_AGTYPE_P(agtype_value_to_agtype(&agtv_result));
 }
@@ -689,7 +712,7 @@ Datum agtype_any_mod(PG_FUNCTION_ARGS)
     }
 
     result = DirectFunctionCall2(agtype_mod, AGTYPE_P_GET_DATUM(lhs),
-                                             AGTYPE_P_GET_DATUM(rhs));
+                                 AGTYPE_P_GET_DATUM(rhs));
 
     AG_RETURN_AGTYPE_P(DATUM_GET_AGTYPE_P(result));
 }
@@ -755,8 +778,11 @@ Datum agtype_pow(PG_FUNCTION_ARGS)
         agtv_result.val.numeric = DatumGetNumeric(numd);
     }
     else
-        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                        errmsg("Invalid input parameter types for agtype_pow")));
+    {
+        ereport(ERROR,
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg("Invalid input parameter types for agtype_pow")));
+    }
 
     AG_RETURN_AGTYPE_P(agtype_value_to_agtype(&agtv_result));
 }
@@ -795,7 +821,7 @@ Datum agtype_any_eq(PG_FUNCTION_ARGS)
     }
 
     result = DirectFunctionCall2(agtype_eq, AGTYPE_P_GET_DATUM(lhs),
-                                            AGTYPE_P_GET_DATUM(rhs));
+                                 AGTYPE_P_GET_DATUM(rhs));
 
     PG_RETURN_BOOL(result);
 }
@@ -834,7 +860,7 @@ Datum agtype_any_ne(PG_FUNCTION_ARGS)
     }
 
     result = DirectFunctionCall2(agtype_ne, AGTYPE_P_GET_DATUM(lhs),
-                                            AGTYPE_P_GET_DATUM(rhs));
+                                 AGTYPE_P_GET_DATUM(rhs));
 
     PG_RETURN_BOOL(result);
 }
@@ -873,7 +899,7 @@ Datum agtype_any_lt(PG_FUNCTION_ARGS)
     }
 
     result = DirectFunctionCall2(agtype_lt, AGTYPE_P_GET_DATUM(lhs),
-                                            AGTYPE_P_GET_DATUM(rhs));
+                                 AGTYPE_P_GET_DATUM(rhs));
 
     PG_RETURN_BOOL(result);
 }
@@ -912,7 +938,7 @@ Datum agtype_any_gt(PG_FUNCTION_ARGS)
     }
 
     result = DirectFunctionCall2(agtype_gt, AGTYPE_P_GET_DATUM(lhs),
-                                            AGTYPE_P_GET_DATUM(rhs));
+                                 AGTYPE_P_GET_DATUM(rhs));
 
     PG_RETURN_BOOL(result);
 }
@@ -951,7 +977,7 @@ Datum agtype_any_le(PG_FUNCTION_ARGS)
     }
 
     result = DirectFunctionCall2(agtype_le, AGTYPE_P_GET_DATUM(lhs),
-                                            AGTYPE_P_GET_DATUM(rhs));
+                                 AGTYPE_P_GET_DATUM(rhs));
 
     PG_RETURN_BOOL(result);
 }
@@ -990,11 +1016,10 @@ Datum agtype_any_ge(PG_FUNCTION_ARGS)
     }
 
     result = DirectFunctionCall2(agtype_ge, AGTYPE_P_GET_DATUM(lhs),
-                                            AGTYPE_P_GET_DATUM(rhs));
+                                 AGTYPE_P_GET_DATUM(rhs));
 
     PG_RETURN_BOOL(result);
 }
-
 
 static agtype *agtype_concat(agtype *agt1, agtype *agt2)
 {
@@ -1012,9 +1037,13 @@ static agtype *agtype_concat(agtype *agt1, agtype *agt2)
     if (AGT_ROOT_IS_OBJECT(agt1) == AGT_ROOT_IS_OBJECT(agt2))
     {
         if (AGT_ROOT_COUNT(agt1) == 0 && !AGT_ROOT_IS_SCALAR(agt2))
+        {
             return agt2;
+        }
         else if (AGT_ROOT_COUNT(agt2) == 0 && !AGT_ROOT_IS_SCALAR(agt1))
+        {
             return agt1;
+        }
     }
 
     it1 = agtype_iterator_init(&agt1->root);
@@ -1065,7 +1094,6 @@ static agtype_value *iterator_concat(agtype_iterator **it1,
             res = push_agtype_value(state, r2,
                                     r2 != WAGT_END_OBJECT ? &v2 : NULL);
     }
-
     /*
      * Both elements are arrays (either can be scalar).
      */
@@ -1157,6 +1185,7 @@ static void ereport_op_str(const char *op, agtype *lhs, agtype *rhs)
         msgfmt = "invalid expression: %s %s %s";
         lstr = agtype_to_cstring(NULL, &lhs->root, VARSIZE(lhs));
     }
+
     rstr = agtype_to_cstring(NULL, &rhs->root, VARSIZE(rhs));
 
     ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),

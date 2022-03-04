@@ -304,21 +304,21 @@ SELECT agtype_div('-4', '3');
 (1 row)
 
 SELECT agtype_div('4', '-3.0');
-    agtype_div     
--------------------
- -1.33333333333333
+     agtype_div      
+---------------------
+ -1.3333333333333333
 (1 row)
 
 SELECT agtype_div('-4.0', '3');
-    agtype_div     
--------------------
- -1.33333333333333
+     agtype_div      
+---------------------
+ -1.3333333333333333
 (1 row)
 
 SELECT agtype_div('4.0', '-3.0');
-    agtype_div     
--------------------
- -1.33333333333333
+     agtype_div      
+---------------------
+ -1.3333333333333333
 (1 row)
 
 SELECT agtype_div('4', '-3.0::numeric');
@@ -518,9 +518,9 @@ SELECT agtype_any_div('-4', 3);
 (1 row)
 
 SELECT agtype_any_div('4.0', -3);
-  agtype_any_div   
--------------------
- -1.33333333333333
+   agtype_any_div    
+---------------------
+ -1.3333333333333333
 (1 row)
 
 SELECT agtype_any_div('-4::numeric', 3);
@@ -668,9 +668,9 @@ SELECT '3'::agtype + '3'::agtype;
 (1 row)
 
 SELECT '3'::agtype + '3.14'::agtype;
- ?column? 
-----------
- 6.14
+     ?column?      
+-------------------
+ 6.140000000000001
 (1 row)
 
 SELECT '3'::agtype + '3.14::numeric'::agtype;
@@ -701,9 +701,9 @@ SELECT '3'::agtype + 3;
 (1 row)
 
 SELECT '3.14'::agtype + 3;
- ?column? 
-----------
- 6.14
+     ?column?      
+-------------------
+ 6.140000000000001
 (1 row)
 
 SELECT '3.14::numeric'::agtype + 3;
@@ -719,9 +719,9 @@ SELECT 3 + '3'::agtype;
 (1 row)
 
 SELECT 3 + '3.14'::agtype;
- ?column? 
-----------
- 6.14
+     ?column?      
+-------------------
+ 6.140000000000001
 (1 row)
 
 SELECT 3 + '3.14::numeric'::agtype;
@@ -737,9 +737,9 @@ SELECT '3'::agtype - 3;
 (1 row)
 
 SELECT '3.14'::agtype - 3;
- ?column? 
-----------
- 0.14
+      ?column?       
+---------------------
+ 0.14000000000000012
 (1 row)
 
 SELECT '3.14::numeric'::agtype - 3;
@@ -755,9 +755,9 @@ SELECT 3 - '3'::agtype;
 (1 row)
 
 SELECT 3 - '3.14'::agtype;
- ?column? 
-----------
- -0.14
+       ?column?       
+----------------------
+ -0.14000000000000012
 (1 row)
 
 SELECT 3 - '3.14::numeric'::agtype;
@@ -809,9 +809,9 @@ SELECT '3'::agtype / 3;
 (1 row)
 
 SELECT '3.14'::agtype / 3;
-     ?column?     
-------------------
- 1.04666666666667
+      ?column?      
+--------------------
+ 1.0466666666666666
 (1 row)
 
 SELECT '3.14::numeric'::agtype / 3;
@@ -827,9 +827,9 @@ SELECT 3 / '3'::agtype;
 (1 row)
 
 SELECT 3 / '3.14'::agtype;
-     ?column?      
--------------------
- 0.955414012738854
+      ?column?      
+--------------------
+ 0.9554140127388535
 (1 row)
 
 SELECT 3 / '3.14::numeric'::agtype;
@@ -845,9 +845,9 @@ SELECT '3'::agtype % 3;
 (1 row)
 
 SELECT '3.14'::agtype % 3;
- ?column? 
-----------
- 0.14
+      ?column?       
+---------------------
+ 0.14000000000000012
 (1 row)
 
 SELECT '3.14::numeric'::agtype % 3;

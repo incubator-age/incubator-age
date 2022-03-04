@@ -28,8 +28,7 @@
 
 static void outChar(StringInfo str, char c);
 
-#define DEFINE_AG_NODE(type) \
-    type *_node = (type *)node
+#define DEFINE_AG_NODE(type) type *_node = (type *) node
 
 #define WRITE_NODE_FIELD(field_name) \
     do \
@@ -47,7 +46,8 @@ static void outChar(StringInfo str, char c);
 
 // Write a char field (ie, one ascii character)
 #define WRITE_CHAR_FIELD(fldname) \
-    do { \
+    do \
+    { \
         (appendStringInfo(str, " :" CppAsString(fldname) " "), \
          outChar(str, _node->fldname)); \
     } while (0)
@@ -64,7 +64,7 @@ static void outChar(StringInfo str, char c);
     do \
     { \
         appendStringInfo(str, " :" CppAsString(field_name) " %d", \
-                         (int)_node->field_name); \
+                         (int) _node->field_name); \
     } while (0)
 
 #define WRITE_LOCATION_FIELD(field_name) \
@@ -83,19 +83,19 @@ static void outChar(StringInfo str, char c);
 
 // Write an integer field (anything written as ":fldname %d")
 #define WRITE_INT32_FIELD(field_name) \
-    do { \
+    do \
+    { \
         appendStringInfo(str, " :" CppAsString(field_name) " %d", \
                          _node->field_name); \
     } while (0)
 
 // Write an OID field (don't hard-wire assumption that OID is same as uint)
 #define WRITE_OID_FIELD(fldname) \
-    do { \
+    do \
+    { \
         appendStringInfo(str, " :" CppAsString(fldname) " %u", \
-                          _node->fldname); \
-    } while(0);
-
-
+                         _node->fldname); \
+    } while (0)
 
 // serialization function for the cypher_return ExtensibleNode.
 void out_cypher_return(StringInfo str, const ExtensibleNode *node)
@@ -298,7 +298,7 @@ void out_cypher_create_target_nodes(StringInfo str, const ExtensibleNode *node)
 
     WRITE_NODE_FIELD(paths);
     WRITE_INT32_FIELD(flags);
-    WRITE_OID_FIELD(graph_oid);
+    WRITE_INT32_FIELD(graph_id);
 }
 
 // serialization function for the cypher_create_path ExtensibleNode.
@@ -365,7 +365,7 @@ void out_cypher_delete_information(StringInfo str, const ExtensibleNode *node)
     WRITE_NODE_FIELD(delete_items);
     WRITE_INT32_FIELD(flags);
     WRITE_STRING_FIELD(graph_name);
-    WRITE_OID_FIELD(graph_oid);
+    WRITE_INT32_FIELD(graph_id);
     WRITE_BOOL_FIELD(detach);
 }
 
@@ -394,7 +394,7 @@ void out_cypher_merge_information(StringInfo str, const ExtensibleNode *node)
     DEFINE_AG_NODE(cypher_merge_information);
 
     WRITE_INT32_FIELD(flags);
-    WRITE_OID_FIELD(graph_oid);
+    WRITE_INT32_FIELD(graph_id);
     WRITE_INT32_FIELD(merge_function_attr);
     WRITE_NODE_FIELD(path);
 }
@@ -405,14 +405,12 @@ void out_cypher_merge_information(StringInfo str, const ExtensibleNode *node)
  * Convert one char.  Goes through outToken() so that special characters are
  * escaped.
  */
-static void
-outChar(StringInfo str, char c)
+static void outChar(StringInfo str, char c)
 {
-        char            in[2];
+    char in[2];
 
-        in[0] = c;
-        in[1] = '\0';
+    in[0] = c;
+    in[1] = '\0';
 
-        outToken(str, in);
+    outToken(str, in);
 }
-

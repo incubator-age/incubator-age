@@ -20,15 +20,10 @@
 #ifndef AG_KEYWORDS_H
 #define AG_KEYWORDS_H
 
-#include "common/keywords.h"
+#include "common/kwlookup.h"
 
-typedef struct cypher_keyword
-{
-    char *kwname;
-    int value;
-    int category;
-} cypher_keyword;
-extern cypher_keyword cypher_keywords[42];
-extern const int num_cypher_keywords;
+extern const ScanKeywordList CypherKeyword;
+extern const uint16 CypherKeywordTokens[];
+extern const uint16 CypherKeywordCategories[];
 
 #endif

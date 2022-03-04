@@ -859,7 +859,7 @@ $$) AS (i bigint);
 SELECT * FROM cypher('type_coercion', $$
 	RETURN '1.0'
 $$) AS (i bigint);
-ERROR:  invalid input syntax for integer: "1.0"
+ERROR:  invalid input syntax for type bigint: "1.0"
 -- Casting to ints that will cause overflow
 SELECT * FROM cypher('type_coercion', $$
 	RETURN 10000000000000000000
@@ -1028,11 +1028,11 @@ SELECT agtype_in('null::int');
 SELECT * FROM cypher('expr', $$
 RETURN '0.0'::int
 $$) AS r(result agtype);
-ERROR:  invalid input syntax for integer: "0.0"
+ERROR:  invalid input syntax for type bigint: "0.0"
 SELECT * FROM cypher('expr', $$
 RETURN '1.5'::int
 $$) AS r(result agtype);
-ERROR:  invalid input syntax for integer: "1.5"
+ERROR:  invalid input syntax for type bigint: "1.5"
 SELECT * FROM cypher('graph_name', $$
 RETURN "15555555555555555555555555555"::int
 $$) AS (string_result agtype);
@@ -3521,57 +3521,57 @@ ERROR:  replace() unsupported argument type 23
 SELECT * FROM cypher('expr', $$
     RETURN sin(3.1415)
 $$) AS (results agtype), sin(3.1415);
-       results        |         sin          
-----------------------+----------------------
- 9.26535896604903e-05 | 9.26535896604903e-05
+        results        |          sin          
+-----------------------+-----------------------
+ 9.265358966049026e-05 | 9.265358966049026e-05
 (1 row)
 
 SELECT * FROM cypher('expr', $$
     RETURN cos(3.1415)
 $$) AS (results agtype), cos(3.1415);
-      results       |        cos         
---------------------+--------------------
- -0.999999995707656 | -0.999999995707656
+       results       |         cos         
+---------------------+---------------------
+ -0.9999999957076562 | -0.9999999957076562
 (1 row)
 
 SELECT * FROM cypher('expr', $$
     RETURN tan(3.1415)
 $$) AS (results agtype), tan(3.1415);
-        results        |          tan          
------------------------+-----------------------
- -9.26535900581913e-05 | -9.26535900581913e-05
+        results         |          tan           
+------------------------+------------------------
+ -9.265359005819132e-05 | -9.265359005819132e-05
 (1 row)
 
 SELECT * FROM cypher('expr', $$
     RETURN cot(3.1415)
 $$) AS (results agtype), cot(3.1415);
-      results      |        cot        
--------------------+-------------------
- -10792.8899395258 | -10792.8899395258
+       results       |         cot         
+---------------------+---------------------
+ -10792.889939525792 | -10792.889939525792
 (1 row)
 
 SELECT * FROM sin(3.1415), age_sin(3.1415);
-         sin          |       age_sin        
-----------------------+----------------------
- 9.26535896604903e-05 | 9.26535896604903e-05
+          sin          |        age_sin        
+-----------------------+-----------------------
+ 9.265358966049026e-05 | 9.265358966049026e-05
 (1 row)
 
 SELECT * FROM cos(3.1415), age_cos(3.1415);
-        cos         |      age_cos       
---------------------+--------------------
- -0.999999995707656 | -0.999999995707656
+         cos         |       age_cos       
+---------------------+---------------------
+ -0.9999999957076562 | -0.9999999957076562
 (1 row)
 
 SELECT * FROM tan(3.1415), age_tan(3.1415);
-          tan          |        age_tan        
------------------------+-----------------------
- -9.26535900581913e-05 | -9.26535900581913e-05
+          tan           |        age_tan         
+------------------------+------------------------
+ -9.265359005819132e-05 | -9.265359005819132e-05
 (1 row)
 
 SELECT * FROM cot(3.1415), age_cot(3.1415);
-        cot        |      age_cot      
--------------------+-------------------
- -10792.8899395258 | -10792.8899395258
+         cot         |       age_cot       
+---------------------+---------------------
+ -10792.889939525792 | -10792.889939525792
 (1 row)
 
 -- should return null
@@ -3710,57 +3710,57 @@ HINT:  No function matches the given name and argument types. You might need to 
 SELECT * FROM cypher('expr', $$
     RETURN asin(1)*2
 $$) AS (results agtype);
-     results      
-------------------
- 3.14159265358979
+      results      
+-------------------
+ 3.141592653589793
 (1 row)
 
 SELECT * FROM cypher('expr', $$
     RETURN acos(0)*2
 $$) AS (results agtype);
-     results      
-------------------
- 3.14159265358979
+      results      
+-------------------
+ 3.141592653589793
 (1 row)
 
 SELECT * FROM cypher('expr', $$
     RETURN atan(1)*4
 $$) AS (results agtype);
-     results      
-------------------
- 3.14159265358979
+      results      
+-------------------
+ 3.141592653589793
 (1 row)
 
 SELECT * FROM cypher('expr', $$
     RETURN atan2(1, 1)*4
 $$) AS (results agtype);
-     results      
-------------------
- 3.14159265358979
+      results      
+-------------------
+ 3.141592653589793
 (1 row)
 
 SELECT * FROM asin(1), age_asin(1);
-      asin       |    age_asin     
------------------+-----------------
- 1.5707963267949 | 1.5707963267949
+        asin        |      age_asin      
+--------------------+--------------------
+ 1.5707963267948966 | 1.5707963267948966
 (1 row)
 
 SELECT * FROM acos(0), age_acos(0);
-      acos       |    age_acos     
------------------+-----------------
- 1.5707963267949 | 1.5707963267949
+        acos        |      age_acos      
+--------------------+--------------------
+ 1.5707963267948966 | 1.5707963267948966
 (1 row)
 
 SELECT * FROM atan(1), age_atan(1);
-       atan        |     age_atan      
--------------------+-------------------
- 0.785398163397448 | 0.785398163397448
+        atan        |      age_atan      
+--------------------+--------------------
+ 0.7853981633974483 | 0.7853981633974483
 (1 row)
 
 SELECT * FROM atan2(1, 1), age_atan2(1, 1);
-       atan2       |     age_atan2     
--------------------+-------------------
- 0.785398163397448 | 0.785398163397448
+       atan2        |     age_atan2      
+--------------------+--------------------
+ 0.7853981633974483 | 0.7853981633974483
 (1 row)
 
 -- should return null
@@ -3971,25 +3971,25 @@ ERROR:  atan2() invalid number of arguments
 SELECT * FROM cypher('expr', $$
     RETURN pi()
 $$) AS (results agtype);
-     results      
-------------------
- 3.14159265358979
+      results      
+-------------------
+ 3.141592653589793
 (1 row)
 
 SELECT * FROM cypher('expr', $$
     RETURN sin(pi())
 $$) AS (results agtype);
-       results        
-----------------------
- 1.22464679914735e-16
+        results         
+------------------------
+ 1.2246467991473532e-16
 (1 row)
 
 SELECT * FROM cypher('expr', $$
     RETURN sin(pi()/4)
 $$) AS (results agtype);
-      results      
--------------------
- 0.707106781186547
+      results       
+--------------------
+ 0.7071067811865475
 (1 row)
 
 SELECT * FROM cypher('expr', $$
@@ -4003,9 +4003,9 @@ $$) AS (results agtype);
 SELECT * FROM cypher('expr', $$
     RETURN cos(pi()/2)
 $$) AS (results agtype);
-       results        
-----------------------
- 6.12323399573677e-17
+        results        
+-----------------------
+ 6.123233995736766e-17
 (1 row)
 
 SELECT * FROM cypher('expr', $$
@@ -4053,9 +4053,9 @@ $$) AS (results agtype);
 SELECT * FROM cypher('expr', $$
     RETURN radians(360), 2*pi()
 $$) AS (results agtype, Two_PI agtype);
-     results      |      two_pi      
-------------------+------------------
- 6.28318530717959 | 6.28318530717959
+      results      |      two_pi       
+-------------------+-------------------
+ 6.283185307179586 | 6.283185307179586
 (1 row)
 
 SELECT * FROM cypher('expr', $$
@@ -4069,9 +4069,9 @@ $$) AS (results agtype);
 SELECT * FROM cypher('expr', $$
     RETURN radians(180), pi()
 $$) AS (results agtype, PI agtype);
-     results      |        pi        
-------------------+------------------
- 3.14159265358979 | 3.14159265358979
+      results      |        pi         
+-------------------+-------------------
+ 3.141592653589793 | 3.141592653589793
 (1 row)
 
 SELECT * FROM cypher('expr', $$
@@ -4085,9 +4085,9 @@ $$) AS (results agtype);
 SELECT * FROM cypher('expr', $$
     RETURN radians(90), pi()/2
 $$) AS (results agtype, Half_PI agtype);
-     results     |     half_pi     
------------------+-----------------
- 1.5707963267949 | 1.5707963267949
+      results       |      half_pi       
+--------------------+--------------------
+ 1.5707963267948966 | 1.5707963267948966
 (1 row)
 
 SELECT * FROM cypher('expr', $$
@@ -4492,9 +4492,9 @@ WHERE cypher_1.result = cypher_2.result;
 SELECT * from cypher('expr', $$
     RETURN log(2.718281828459045)
 $$) as (result agtype);
- result 
---------
- 1.0
+       result       
+--------------------
+ 1.0000000000000018
 (1 row)
 
 SELECT * from cypher('expr', $$
@@ -4575,17 +4575,17 @@ HINT:  No function matches the given name and argument types. You might need to 
 SELECT * from cypher('expr', $$
     RETURN e()
 $$) as (result agtype);
-      result      
-------------------
- 2.71828182845905
+      result       
+-------------------
+ 2.718281828459045
 (1 row)
 
 SELECT * from cypher('expr', $$
     RETURN log(e())
 $$) as (result agtype);
- result 
---------
- 1.0
+       result       
+--------------------
+ 1.0000000000000018
 (1 row)
 
 --
@@ -4594,9 +4594,9 @@ $$) as (result agtype);
 SELECT * from cypher('expr', $$
     RETURN exp(1)
 $$) as (result agtype);
-      result      
-------------------
- 2.71828182845905
+      result       
+-------------------
+ 2.718281828459045
 (1 row)
 
 SELECT * from cypher('expr', $$
@@ -4806,9 +4806,9 @@ SELECT * FROM cypher('UCSC', $$ MATCH (u) RETURN (u) $$) AS (vertex agtype);
 
 SELECT * FROM cypher('UCSC', $$ MATCH (u) RETURN avg(u.gpa), sum(u.gpa), sum(u.gpa)/count(u.gpa), count(u.gpa), count(*) $$) 
 AS (avg agtype, sum agtype, sum_divided_by_count agtype, count agtype, count_star agtype);
-       avg        |      sum       |    sum_divided_by_count     | count | count_star 
-------------------+----------------+-----------------------------+-------+------------
- 3.49285714285714 | 24.45::numeric | 3.4928571428571429::numeric | 7     | 7
+        avg        |      sum       |    sum_divided_by_count     | count | count_star 
+-------------------+----------------+-----------------------------+-------+------------
+ 3.492857142857143 | 24.45::numeric | 3.4928571428571429::numeric | 7     | 7
 (1 row)
 
 -- add in 2 null gpa records
@@ -4838,9 +4838,9 @@ SELECT * FROM cypher('UCSC', $$ MATCH (u) RETURN (u) $$) AS (vertex agtype);
 
 SELECT * FROM cypher('UCSC', $$ MATCH (u) RETURN avg(u.gpa), sum(u.gpa), sum(u.gpa)/count(u.gpa), count(u.gpa), count(*) $$) 
 AS (avg agtype, sum agtype, sum_divided_by_count agtype, count agtype, count_star agtype);
-       avg        |      sum       |    sum_divided_by_count     | count | count_star 
-------------------+----------------+-----------------------------+-------+------------
- 3.49285714285714 | 24.45::numeric | 3.4928571428571429::numeric | 7     | 9
+        avg        |      sum       |    sum_divided_by_count     | count | count_star 
+-------------------+----------------+-----------------------------+-------+------------
+ 3.492857142857143 | 24.45::numeric | 3.4928571428571429::numeric | 7     | 9
 (1 row)
 
 -- should return null
@@ -5000,9 +5000,9 @@ HINT:  No function matches the given name and argument types. You might need to 
 --
 SELECT * FROM cypher('UCSC', $$ MATCH (u) RETURN stDev(u.gpa), stDevP(u.gpa) $$)
 AS (stDev agtype, stDevP agtype);
-       stdev       |      stdevp       
--------------------+-------------------
- 0.549566929066705 | 0.508800109100231
+       stdev        |       stdevp       
+--------------------+--------------------
+ 0.5495669290667057 | 0.5088001091002322
 (1 row)
 
 -- should return 0
@@ -5255,12 +5255,12 @@ AS (result agtype);
 -- should fail
 SELECT * FROM cypher('group_by', $$MATCH (x:L) RETURN x.a, x.a + count(*) + x.b + count(*) + x.c$$)
 AS (a agtype, result agtype);
-ERROR:  "x" must be either part of an explicitly listed key or used inside an aggregate function
+ERROR:  column "_.x" must appear in the GROUP BY clause or be used in an aggregate function
 LINE 1: ...p_by', $$MATCH (x:L) RETURN x.a, x.a + count(*) + x.b + coun...
                                                              ^
 SELECT * FROM cypher('group_by', $$MATCH (x:L) RETURN x.a + count(*) + x.b + count(*) + x.c$$)
 AS (result agtype);
-ERROR:  "x" must be either part of an explicitly listed key or used inside an aggregate function
+ERROR:  column "_.x" must appear in the GROUP BY clause or be used in an aggregate function
 LINE 1: ...CT * FROM cypher('group_by', $$MATCH (x:L) RETURN x.a + coun...
                                                              ^
 --ORDER BY

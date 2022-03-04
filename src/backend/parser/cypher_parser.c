@@ -19,7 +19,6 @@
 
 #include "postgres.h"
 
-#include "common/keywords.h"
 #include "nodes/pg_list.h"
 #include "parser/scansup.h"
 
@@ -35,19 +34,8 @@ int cypher_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, ag_scanner_t scanner)
      * 0 means end-of-input.
      */
     const int type_map[] = {
-        0,
-        INTEGER,
-        DECIMAL,
-        STRING,
-        IDENTIFIER,
-        PARAMETER,
-        NOT_EQ,
-        LT_EQ,
-        GT_EQ,
-        DOT_DOT,
-        TYPECAST,
-        PLUS_EQ,
-        EQ_TILDE
+        0,     INTEGER, DECIMAL, STRING,   IDENTIFIER, PARAMETER, NOT_EQ,
+        LT_EQ, GT_EQ,   DOT_DOT, TYPECAST, PLUS_EQ,    EQ_TILDE,
     };
 
     ag_token token;
@@ -65,21 +53,20 @@ int cypher_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, ag_scanner_t scanner)
     case AG_TOKEN_STRING:
         lvalp->string = pstrdup(token.value.s);
         break;
-    case AG_TOKEN_IDENTIFIER:
-    {
-        int keyword;
+    case AG_TOKEN_IDENTIFIER: {
+        int kwnum;
         char *ident;
 
-        //FIXME-Ibarr: keyword = ScanKeywordLookup(token.value.s, cypher_keywords);
-        if (keyword)
+        kwnum = ScanKeywordLookup(token.value.s, &CypherKeyword);
+        if (kwnum >= 0)
         {
             /*
              * use token.value.s instead of keyword->name to preserve
              * case sensitivity
              */
-            lvalp->keyword = token.value.s;
+            lvalp->keyword = GetScanKeyword(kwnum, &CypherKeyword);
             *llocp = token.location;
-            return 1;//FIXME-ibrar keyword->value;
+            return CypherKeywordTokens[kwnum];
         }
 
         ident = pstrdup(token.value.s);
@@ -114,9 +101,9 @@ int cypher_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, ag_scanner_t scanner)
 void cypher_yyerror(YYLTYPE *llocp, ag_scanner_t scanner,
                     cypher_yy_extra *extra, const char *msg)
 {
-    ereport(ERROR, (errcode(ERRCODE_SYNTAX_ERROR),
-                    ag_scanner_errmsg(msg, scanner),
-                    ag_scanner_errposition(*llocp, scanner)));
+    ereport(ERROR,
+            (errcode(ERRCODE_SYNTAX_ERROR), ag_scanner_errmsg(msg, scanner),
+             ag_scanner_errposition(*llocp, scanner)));
 }
 
 /* declaration to make mac os x compiler happy */
@@ -141,11 +128,13 @@ List *parse_cypher(const char *s)
      * Otherwise, it returns 1 (invalid input) or 2 (memory exhaustion).
      */
     if (yyresult)
+    {
         return NIL;
+    }
 
     /*
      * Append the extra node node regardless of its value. Currently the extra
      * node is only used by EXPLAIN
-    */
+     */
     return lappend(extra.result, extra.extra);
 }

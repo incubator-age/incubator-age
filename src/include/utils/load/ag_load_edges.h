@@ -20,13 +20,11 @@
 #ifndef AG_LOAD_EDGES_H
 #define AG_LOAD_EDGES_H
 
-
-#include <stdio.h>
-#include <string.h>
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
-
 
 #include "postgres.h"
 
@@ -65,9 +63,8 @@
 #include "utils/agtype.h"
 #include "utils/graphid.h"
 
-
-
-typedef struct {
+typedef struct
+{
     size_t row;
     char **header;
     size_t *header_len;
@@ -88,12 +85,10 @@ typedef struct {
 
 } csv_edge_reader;
 
-
 void edge_field_cb(void *field, size_t field_len, void *data);
 void edge_row_cb(int delim __attribute__((unused)), void *data);
 
 int create_edges_from_csv_file(char *file_path, char *graph_name, Oid graph_id,
-                                char *object_name, int object_id );
+                               char *object_name, int object_id);
 
-#endif //AG_LOAD_EDGES_H
-
+#endif // AG_LOAD_EDGES_H

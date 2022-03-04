@@ -17,15 +17,13 @@
  * under the License.
  */
 
-
 #ifndef AG_LOAD_LABELS_H
 #define AG_LOAD_LABELS_H
 
-
-#include <stdio.h>
-#include <string.h>
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "postgres.h"
@@ -65,18 +63,18 @@
 #include "utils/agtype.h"
 #include "utils/graphid.h"
 
-
 #define AGE_VERTIX 1
 #define AGE_EDGE 2
 
-
-struct counts {
+struct counts
+{
     long unsigned fields;
     long unsigned allvalues;
     long unsigned rows;
 };
 
-typedef struct {
+typedef struct
+{
     size_t row;
     char **header;
     size_t *header_len;
@@ -95,7 +93,6 @@ typedef struct {
     bool id_field_exists;
 } csv_vertex_reader;
 
-
 void vertex_field_cb(void *field, size_t field_len, void *data);
 void vertex_row_cb(int delim __attribute__((unused)), void *data);
 
@@ -103,4 +100,4 @@ int create_labels_from_csv_file(char *file_path, char *graph_name, Oid graph_id,
                                 char *object_name, int object_id,
                                 bool id_field_exists);
 
-#endif //AG_LOAD_LABELS_H
+#endif // AG_LOAD_LABELS_H

@@ -19,19 +19,21 @@
 
 #include "postgres.h"
 
+#include "access/heapam.h"
+#include "catalog/namespace.h"
 #include "catalog/pg_type.h"
 #include "funcapi.h"
 #include "utils/lsyscache.h"
 
-#include "utils/age_vle.h"
 #include "catalog/ag_graph.h"
-#include "utils/graphid.h"
-#include "utils/age_graphid_ds.h"
 #include "nodes/cypher_nodes.h"
+#include "utils/age_graphid_ds.h"
+#include "utils/age_vle.h"
+#include "utils/graphid.h"
 
 /* defines */
 #define GET_GRAPHID_ARRAY_FROM_CONTAINER(vpc) \
-            (graphid *) (&vpc->graphid_array_data)
+    (graphid *) (&vpc->graphid_array_data)
 #define EDGE_STATE_HTAB_NAME "Edge state "
 #define EDGE_STATE_HTAB_INITIAL_SIZE 100000
 #define EXISTS_HTAB_NAME "known edges"
@@ -40,10 +42,10 @@
 /* edge state entry for the edge_state_hashtable */
 typedef struct edge_state_entry
 {
-    graphid edge_id;               /* edge id, it is also the hash key */
-    bool used_in_path;             /* like visited but more descriptive */
-    bool has_been_matched;         /* have we checked for a  match */
-    bool matched;                  /* is it a match */
+    graphid edge_id;       /* edge id, it is also the hash key */
+    bool used_in_path;     /* like visited but more descriptive */
+    bool has_been_matched; /* have we checked for a  match */
+    bool matched;          /* is it a match */
 } edge_state_entry;
 
 /*
@@ -52,35 +54,39 @@ typedef struct edge_state_entry
  * it isn't.
  */
 typedef enum
-{                                  /* Given a path (u)-[e]-(v)                */
+{ /* Given a path (u)-[e]-(v)                */
 
-    VLE_FUNCTION_PATHS_FROM,       /* Paths from a (u) without a provided (v) */
-    VLE_FUNCTION_PATHS_TO,         /* Paths to a (v) without a provided (u)   */
-    VLE_FUNCTION_PATHS_BETWEEN,    /* Paths between a (u) and a provided (v)  */
-    VLE_FUNCTION_PATHS_ALL,        /* All paths without a provided (u) or (v) */
-    VLE_FUNCTION_NONE
+  VLE_FUNCTION_PATHS_FROM,    /* Paths from a (u) without a provided
+                               * (v) */
+  VLE_FUNCTION_PATHS_TO,      /* Paths to a (v) without a provided (u)
+                               */
+  VLE_FUNCTION_PATHS_BETWEEN, /* Paths between a (u) and a provided
+                               * (v)  */
+  VLE_FUNCTION_PATHS_ALL,     /* All paths without a provided (u) or
+                               * (v) */
+  VLE_FUNCTION_NONE
 } VLE_path_function;
 
 /* VLE local context per each unique age_vle function activation */
 typedef struct VLE_local_context
 {
-    char *graph_name;              /* name of the graph */
-    Oid graph_oid;                 /* graph oid for searching */
-    GRAPH_global_context *ggctx;   /* global graph context pointer */
-    graphid vsid;                  /* starting vertex id */
-    graphid veid;                  /* ending vertex id */
-    char *edge_label_name;         /* edge label name for match */
-    agtype_value *edge_conditions; /* edge property conditions for match */
-    int64 lidx;                    /* lower (start) bound index */
-    int64 uidx;                    /* upper (end) bound index */
-    bool uidx_infinite;            /* flag if the upper bound is omitted */
-    cypher_rel_dir edge_direction; /* the direction of the edge */
-    HTAB *edge_state_hashtable;    /* local state hashtable for our edges */
-    ListGraphId *dfs_vertex_stack; /* dfs stack for vertices */
-    ListGraphId *dfs_edge_stack;   /* dfs stack for edges */
-    ListGraphId *dfs_path_stack;   /* dfs stack containing the path */
+    char *graph_name;                /* name of the graph */
+    uint32 graph_id;                 /* graph oid for searching */
+    GRAPH_global_context *ggctx;     /* global graph context pointer */
+    graphid vsid;                    /* starting vertex id */
+    graphid veid;                    /* ending vertex id */
+    char *edge_label_name;           /* edge label name for match */
+    agtype_value *edge_conditions;   /* edge property conditions for match */
+    int64 lidx;                      /* lower (start) bound index */
+    int64 uidx;                      /* upper (end) bound index */
+    bool uidx_infinite;              /* flag if the upper bound is omitted */
+    cypher_rel_dir edge_direction;   /* the direction of the edge */
+    HTAB *edge_state_hashtable;      /* local state hashtable for our edges */
+    ListGraphId *dfs_vertex_stack;   /* dfs stack for vertices */
+    ListGraphId *dfs_edge_stack;     /* dfs stack for edges */
+    ListGraphId *dfs_path_stack;     /* dfs stack containing the path */
     VLE_path_function path_function; /* which path function to use */
-    GraphIdNode *next_vertex;      /* for VLE_FUNCTION_PATHS_TO */
+    GraphIdNode *next_vertex;        /* for VLE_FUNCTION_PATHS_TO */
 } VLE_local_context;
 
 /*
@@ -93,7 +99,7 @@ typedef struct VLE_path_container
 {
     char vl_len_[4]; /* Do not touch this field! */
     uint32 header;
-    uint32 graph_oid;
+    uint32 graph_id;
     int64 graphid_array_size;
     int64 container_size_bytes;
     graphid graphid_array_data;
@@ -156,10 +162,9 @@ static void create_VLE_local_state_hashtable(VLE_local_context *vlelctx)
     edge_state_ctl.keysize = sizeof(int64);
     edge_state_ctl.entrysize = sizeof(edge_state_entry);
     edge_state_ctl.hash = tag_hash;
-    vlelctx->edge_state_hashtable = hash_create(eshn,
-                                                EDGE_STATE_HTAB_INITIAL_SIZE,
-                                                &edge_state_ctl,
-                                                HASH_ELEM | HASH_FUNCTION);
+    vlelctx->edge_state_hashtable =
+        hash_create(eshn, EDGE_STATE_HTAB_INITIAL_SIZE, &edge_state_ctl,
+                    HASH_ELEM | HASH_FUNCTION);
 }
 
 /*
@@ -323,9 +328,9 @@ static bool is_an_edge_match(VLE_local_context *vlelctx, edge_entry *ee)
             agtype_value *condition_value = NULL;
 
             /* get the condition_value for the specified edge_property_key */
-            condition_value = get_agtype_value_object_value(agtv_edge_conditions,
-                                  edge_property_key.val.string.val,
-                                  edge_property_key.val.string.len);
+            condition_value = get_agtype_value_object_value(
+                agtv_edge_conditions, edge_property_key.val.string.val,
+                edge_property_key.val.string.len);
 
             /* if one exists, we have a key match */
             if (condition_value != NULL)
@@ -336,9 +341,8 @@ static bool is_an_edge_match(VLE_local_context *vlelctx, edge_entry *ee)
                 if (IS_A_AGTYPE_SCALAR(condition_value) &&
                     IS_A_AGTYPE_SCALAR(&edge_property_value))
                 {
-                    match = compare_agtype_scalar_values(condition_value,
-                                                         &edge_property_value)
-                            == 0;
+                    match = compare_agtype_scalar_values(
+                                condition_value, &edge_property_value) == 0;
                 }
                 /* or are they both containers */
                 else if (!IS_A_AGTYPE_SCALAR(condition_value) &&
@@ -356,9 +360,8 @@ static bool is_an_edge_match(VLE_local_context *vlelctx, edge_entry *ee)
                     agtc_property = edge_property_value.val.binary.data;
 
                     /* check for an exact match */
-                    if (compare_agtype_containers_orderability(agtc_condition,
-                                                               agtc_property)
-                        == 0)
+                    if (compare_agtype_containers_orderability(
+                            agtc_condition, agtc_property) == 0)
                     {
                         match = true;
                     }
@@ -379,8 +382,7 @@ static bool is_an_edge_match(VLE_local_context *vlelctx, edge_entry *ee)
                 return false;
             }
         }
-    }
-    while (iterator != NULL);
+    } while (iterator != NULL);
 
     return true;
 }
@@ -467,28 +469,27 @@ static VLE_local_context *build_local_vle_context(FunctionCallInfo fcinfo)
     VLE_local_context *vlelctx = NULL;
     agtype_value *agtv_temp = NULL;
     char *graph_name = NULL;
-    Oid graph_oid;
+    uint32 graph_id;
 
     /* get the graph name - this is a required argument */
-    agtv_temp = get_agtype_value("age_vle", AG_GET_ARG_AGTYPE_P(0),
-                                 AGTV_STRING, true);
-    graph_name = pnstrdup(agtv_temp->val.string.val,
-                          agtv_temp->val.string.len);
-    /* get the graph oid */
-    graph_oid = get_graph_oid(graph_name);
+    agtv_temp = get_agtype_value("age_vle", AG_GET_ARG_AGTYPE_P(0), AGTV_STRING,
+                                 true);
+    graph_name = pnstrdup(agtv_temp->val.string.val, agtv_temp->val.string.len);
+    /* get the graph id */
+    graph_id = get_graph_id(graph_name);
 
     /*
      * Create or retrieve the GRAPH global context for this graph. This function
      * will also purge off invalidated contexts.
-    */
-    ggctx = manage_GRAPH_global_contexts(graph_name, graph_oid);
+     */
+    ggctx = manage_GRAPH_global_contexts(graph_name, graph_id);
 
     /* allocate and initialize local VLE context */
     vlelctx = palloc0(sizeof(VLE_local_context));
 
     /* set the graph name and id */
     vlelctx->graph_name = graph_name;
-    vlelctx->graph_oid = graph_oid;
+    vlelctx->graph_id = graph_id;
 
     /* set the global context referenced by this local VLE context */
     vlelctx->ggctx = ggctx;
@@ -530,10 +531,13 @@ static VLE_local_context *build_local_vle_context(FunctionCallInfo fcinfo)
         }
         else if (agtv_temp == NULL || agtv_temp->type != AGTV_INTEGER)
         {
-            ereport(ERROR,
-                    (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                     errmsg("start vertex argument must be a vertex or the integer id")));
+            ereport(
+                ERROR,
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg(
+                     "start vertex argument must be a vertex or the integer id")));
         }
+
         vlelctx->vsid = agtv_temp->val.int_value;
     }
 
@@ -551,6 +555,7 @@ static VLE_local_context *build_local_vle_context(FunctionCallInfo fcinfo)
         {
             vlelctx->path_function = VLE_FUNCTION_PATHS_FROM;
         }
+
         vlelctx->veid = 0;
     }
     else
@@ -563,25 +568,27 @@ static VLE_local_context *build_local_vle_context(FunctionCallInfo fcinfo)
         }
         else if (agtv_temp == NULL || agtv_temp->type != AGTV_INTEGER)
         {
-            ereport(ERROR,
-                    (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                     errmsg("end vertex argument must be a vertex or the integer id")));
+            ereport(
+                ERROR,
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg(
+                     "end vertex argument must be a vertex or the integer id")));
         }
+
         vlelctx->path_function = VLE_FUNCTION_PATHS_BETWEEN;
         vlelctx->veid = agtv_temp->val.int_value;
     }
 
     /* get the VLE edge prototype */
-    agtv_temp = get_agtype_value("age_vle", AG_GET_ARG_AGTYPE_P(3),
-                                 AGTV_EDGE, true);
+    agtv_temp = get_agtype_value("age_vle", AG_GET_ARG_AGTYPE_P(3), AGTV_EDGE,
+                                 true);
 
     /* get the edge prototype's property conditions */
     vlelctx->edge_conditions = GET_AGTYPE_VALUE_OBJECT_VALUE(agtv_temp,
                                                              "properties");
     /* get the edge prototype's label name */
     agtv_temp = GET_AGTYPE_VALUE_OBJECT_VALUE(agtv_temp, "label");
-    if (agtv_temp->type == AGTV_STRING &&
-        agtv_temp->val.string.len != 0)
+    if (agtv_temp->type == AGTV_STRING && agtv_temp->val.string.len != 0)
     {
         vlelctx->edge_label_name = pnstrdup(agtv_temp->val.string.val,
                                             agtv_temp->val.string.len);
@@ -616,6 +623,7 @@ static VLE_local_context *build_local_vle_context(FunctionCallInfo fcinfo)
         vlelctx->uidx = agtv_temp->val.int_value;
         vlelctx->uidx_infinite = false;
     }
+
     /* get edge direction */
     agtv_temp = get_agtype_value("age_vle", AG_GET_ARG_AGTYPE_P(6),
                                  AGTV_INTEGER, true);
@@ -646,8 +654,8 @@ static edge_state_entry *get_edge_state(VLE_local_context *vlelctx,
     bool found = false;
 
     /* retrieve the edge_state_entry from the edge state hashtable */
-    ese = (edge_state_entry *)hash_search(vlelctx->edge_state_hashtable,
-                                          (void *)&edge_id, HASH_ENTER, &found);
+    ese = (edge_state_entry *) hash_search(
+        vlelctx->edge_state_hashtable, (void *) &edge_id, HASH_ENTER, &found);
 
     /* if it isn't found, it needs to be created and initialized */
     if (!found)
@@ -658,6 +666,7 @@ static edge_state_entry *get_edge_state(VLE_local_context *vlelctx,
         ese->has_been_matched = false;
         ese->matched = false;
     }
+
     return ese;
 }
 
@@ -672,45 +681,44 @@ static graphid get_next_vertex(VLE_local_context *vlelctx, edge_entry *ee)
     /* get the result based on the specified VLE edge direction */
     switch (vlelctx->edge_direction)
     {
-        case CYPHER_REL_DIR_RIGHT:
-            terminal_vertex_id = get_edge_entry_end_vertex_id(ee);
-            break;
+    case CYPHER_REL_DIR_RIGHT:
+        terminal_vertex_id = get_edge_entry_end_vertex_id(ee);
+        break;
 
-        case CYPHER_REL_DIR_LEFT:
-            terminal_vertex_id = get_edge_entry_start_vertex_id(ee);
-            break;
+    case CYPHER_REL_DIR_LEFT:
+        terminal_vertex_id = get_edge_entry_start_vertex_id(ee);
+        break;
 
-        case CYPHER_REL_DIR_NONE:
+    case CYPHER_REL_DIR_NONE: {
+        ListGraphId *vertex_stack = NULL;
+        graphid parent_vertex_id;
+
+        vertex_stack = vlelctx->dfs_vertex_stack;
+        /*
+         * Get the parent vertex of this edge. When we are looking at edges
+         * as un-directional, where we go to next depends on where we came
+         * from. This is because we can go against an edge.
+         */
+        parent_vertex_id = PEEK_GRAPHID_STACK(vertex_stack);
+        /* find the terminal vertex */
+        if (get_edge_entry_start_vertex_id(ee) == parent_vertex_id)
         {
-            ListGraphId *vertex_stack = NULL;
-            graphid parent_vertex_id;
-
-            vertex_stack = vlelctx->dfs_vertex_stack;
-            /*
-             * Get the parent vertex of this edge. When we are looking at edges
-             * as un-directional, where we go to next depends on where we came
-             * from. This is because we can go against an edge.
-             */
-            parent_vertex_id = PEEK_GRAPHID_STACK(vertex_stack);
-            /* find the terminal vertex */
-            if (get_edge_entry_start_vertex_id(ee) == parent_vertex_id)
-            {
-                terminal_vertex_id = get_edge_entry_end_vertex_id(ee);
-            }
-            else if (get_edge_entry_end_vertex_id(ee) == parent_vertex_id)
-            {
-                terminal_vertex_id = get_edge_entry_start_vertex_id(ee);
-            }
-            else
-            {
-                elog(ERROR, "get_next_vertex: no parent match");
-            }
-
-            break;
+            terminal_vertex_id = get_edge_entry_end_vertex_id(ee);
+        }
+        else if (get_edge_entry_end_vertex_id(ee) == parent_vertex_id)
+        {
+            terminal_vertex_id = get_edge_entry_start_vertex_id(ee);
+        }
+        else
+        {
+            elog(ERROR, "get_next_vertex: no parent match");
         }
 
-        default:
-            elog(ERROR, "get_next_vertex: unknown edge direction");
+        break;
+    }
+
+    default:
+        elog(ERROR, "get_next_vertex: unknown edge direction");
     }
 
     return terminal_vertex_id;
@@ -779,6 +787,7 @@ static bool dfs_find_a_path_between(VLE_local_context *vlelctx)
                 pop_graphid_stack(path_stack);
                 ese->used_in_path = false;
             }
+
             /* now remove it from the edge stack */
             pop_graphid_stack(edge_stack);
             /*
@@ -791,6 +800,7 @@ static bool dfs_find_a_path_between(VLE_local_context *vlelctx)
             {
                 pop_graphid_stack(vertex_stack);
             }
+
             /* move to the next edge */
             continue;
         }
@@ -818,13 +828,13 @@ static bool dfs_find_a_path_between(VLE_local_context *vlelctx)
             /* we found one */
             found = true;
         }
+
         /*
          * If we have found the end vertex but, we are not within our upper
          * bounds, we need to back up. We still need to continue traversing
          * the graph if we aren't within our lower bounds, though.
          */
-        if (next_vertex_id == end_vertex_id &&
-            !vlelctx->uidx_infinite &&
+        if (next_vertex_id == end_vertex_id && !vlelctx->uidx_infinite &&
             get_stack_size(path_stack) > vlelctx->uidx)
         {
             continue;
@@ -907,6 +917,7 @@ static bool dfs_find_a_path_from(VLE_local_context *vlelctx)
                 pop_graphid_stack(path_stack);
                 ese->used_in_path = false;
             }
+
             /* now remove it from the edge stack */
             pop_graphid_stack(edge_stack);
             /*
@@ -919,6 +930,7 @@ static bool dfs_find_a_path_from(VLE_local_context *vlelctx)
             {
                 pop_graphid_stack(vertex_stack);
             }
+
             /* move to the next edge */
             continue;
         }
@@ -982,6 +994,7 @@ static bool is_edge_in_path(VLE_local_context *vlelctx, graphid edge_id)
         {
             return true;
         }
+
         /* get the next stack element */
         edge = next_GraphIdNode(edge);
     }
@@ -1025,6 +1038,7 @@ static void add_valid_vertex_edges(VLE_local_context *vlelctx,
     {
         edge = NULL;
     }
+
     /* add in the vertex's edge(s) */
     while (edge != NULL)
     {
@@ -1077,6 +1091,7 @@ static void add_valid_vertex_edges(VLE_local_context *vlelctx,
                     ese->has_been_matched = true;
                     ese->matched = false;
                 }
+
                 /* if it is a match, add it */
                 if (ese->has_been_matched && ese->matched)
                 {
@@ -1093,10 +1108,12 @@ static void add_valid_vertex_edges(VLE_local_context *vlelctx,
                         push_graphid_stack(vertex_stack,
                                            get_vertex_entry_id(ve));
                     }
+
                     push_graphid_stack(edge_stack, edge_id);
                 }
             }
         }
+
         edge = next_GraphIdNode(edge);
     }
 }
@@ -1189,8 +1206,8 @@ static VLE_path_container *build_VLE_path_container(VLE_local_context *vlelctx)
      */
     vpc = create_VLE_path_container((ssize * 2) + 1);
 
-    /* set the graph_oid */
-    vpc->graph_oid = vlelctx->graph_oid;
+    /* set the graph_id */
+    vpc->graph_id = vlelctx->graph_id;
 
     /* get the graphid_array from the container */
     graphid_array = GET_GRAPHID_ARRAY_FROM_CONTAINER(vpc);
@@ -1230,9 +1247,9 @@ static VLE_path_container *build_VLE_path_container(VLE_local_context *vlelctx)
 
         ee = get_edge_entry(vlelctx->ggctx, graphid_array[index]);
         vid = (vid == get_edge_entry_start_vertex_id(ee)) ?
-                   get_edge_entry_end_vertex_id(ee) :
-                   get_edge_entry_start_vertex_id(ee);
-        graphid_array[index+1] = vid;
+                  get_edge_entry_end_vertex_id(ee) :
+                  get_edge_entry_start_vertex_id(ee);
+        graphid_array[index + 1] = vid;
     }
 
     /* return the container */
@@ -1256,8 +1273,8 @@ static VLE_path_container *build_VLE_zero_container(VLE_local_context *vlelctx)
      */
     vpc = create_VLE_path_container(1);
 
-    /* set the graph_oid */
-    vpc->graph_oid = vlelctx->graph_oid;
+    /* set the graph_id */
+    vpc->graph_id = vlelctx->graph_id;
 
     /* get the graphid_array from the container */
     graphid_array = GET_GRAPHID_ARRAY_FROM_CONTAINER(vpc);
@@ -1279,16 +1296,16 @@ static agtype_value *build_edge_list(VLE_path_container *vpc)
 {
     GRAPH_global_context *ggctx = NULL;
     agtype_in_state edges_result;
-    Oid graph_oid = InvalidOid;
+    uint32 graph_id = InvalidOid;
     graphid *graphid_array = NULL;
     int64 graphid_array_size = 0;
     int index = 0;
 
-    /* get the graph_oid */
-    graph_oid = vpc->graph_oid;
+    /* get the graph_id */
+    graph_id = vpc->graph_id;
 
     /* get the GRAPH global context for this graph */
-    ggctx = find_GRAPH_global_context(graph_oid);
+    ggctx = find_GRAPH_global_context(graph_id);
     /* verify we got a global context */
     Assert(ggctx != NULL);
 
@@ -1343,16 +1360,16 @@ static agtype_value *build_path(VLE_path_container *vpc)
 {
     GRAPH_global_context *ggctx = NULL;
     agtype_in_state path_result;
-    Oid graph_oid = InvalidOid;
+    uint32 graph_id = InvalidOid;
     graphid *graphid_array = NULL;
     int64 graphid_array_size = 0;
     int index = 0;
 
-    /* get the graph_oid */
-    graph_oid = vpc->graph_oid;
+    /* get the graph_id */
+    graph_id = vpc->graph_id;
 
     /* get the GRAPH global context for this graph */
-    ggctx = find_GRAPH_global_context(graph_oid);
+    ggctx = find_GRAPH_global_context(graph_id);
     /* verify we got a global context */
     Assert(ggctx != NULL);
 
@@ -1378,9 +1395,9 @@ static agtype_value *build_path(VLE_path_container *vpc)
         /* get the label name from the oid */
         label_name = get_rel_name(get_vertex_entry_label_table_oid(ve));
         /* reconstruct the vertex */
-        agtv_vertex = agtype_value_build_vertex(get_vertex_entry_id(ve),
-                                                label_name,
-                                                get_vertex_entry_properties(ve));
+        agtv_vertex =
+            agtype_value_build_vertex(get_vertex_entry_id(ve), label_name,
+                                      get_vertex_entry_properties(ve));
         /* push the vertex */
         path_result.res = push_agtype_value(&path_result.parse_state, WAGT_ELEM,
                                             agtv_vertex);
@@ -1395,7 +1412,7 @@ static agtype_value *build_path(VLE_path_container *vpc)
         }
 
         /* get the edge entry from the hashtable */
-        ee = get_edge_entry(ggctx, graphid_array[index+1]);
+        ee = get_edge_entry(ggctx, graphid_array[index + 1]);
         /* get the label name from the oid */
         label_name = get_rel_name(get_edge_entry_label_table_oid(ee));
         /* reconstruct the edge */
@@ -1477,9 +1494,8 @@ Datum age_vle(PG_FUNCTION_ARGS)
             PG_ARGISNULL(3) || /* edge prototype */
             PG_ARGISNULL(6))   /* direction */
         {
-             ereport(ERROR,
-                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                 errmsg("age_vle: invalid NULL argument passed")));
+            ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                            errmsg("age_vle: invalid NULL argument passed")));
         }
 
         /* create a function context for cross-call persistence */
@@ -1511,7 +1527,7 @@ Datum age_vle(PG_FUNCTION_ARGS)
     funcctx = SRF_PERCALL_SETUP();
 
     /* restore our VLE local context */
-    vlelctx = (VLE_local_context *)funcctx->user_fctx;
+    vlelctx = (VLE_local_context *) funcctx->user_fctx;
 
     /*
      * All work done in dfs_find_a_path needs to be done in a context that
@@ -1524,19 +1540,19 @@ Datum age_vle(PG_FUNCTION_ARGS)
         /* find one path based on specific input */
         switch (vlelctx->path_function)
         {
-            case VLE_FUNCTION_PATHS_TO:
-            case VLE_FUNCTION_PATHS_BETWEEN:
-                found_a_path = dfs_find_a_path_between(vlelctx);
-                break;
+        case VLE_FUNCTION_PATHS_TO:
+        case VLE_FUNCTION_PATHS_BETWEEN:
+            found_a_path = dfs_find_a_path_between(vlelctx);
+            break;
 
-            case VLE_FUNCTION_PATHS_ALL:
-            case VLE_FUNCTION_PATHS_FROM:
-                found_a_path = dfs_find_a_path_from(vlelctx);
-                break;
+        case VLE_FUNCTION_PATHS_ALL:
+        case VLE_FUNCTION_PATHS_FROM:
+            found_a_path = dfs_find_a_path_from(vlelctx);
+            break;
 
-            default:
-                found_a_path = false;
-                break;
+        default:
+            found_a_path = false;
+            break;
         }
 
         /* if we found a path, or are done, flag it so we can output the data */
@@ -1576,9 +1592,8 @@ Datum age_vle(PG_FUNCTION_ARGS)
         /* we shouldn't get here */
         else
         {
-            ereport(ERROR,
-                    (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                     errmsg("age_vle() invalid path function")));
+            ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                            errmsg("age_vle() invalid path function")));
         }
     }
 
@@ -1656,7 +1671,7 @@ agtype_value *agtv_materialize_vle_path(agtype *agt_arg_vpc)
     Assert(AGT_ROOT_BINARY_FLAGS(agt_arg_vpc) == AGT_FBINARY_TYPE_VLE_PATH);
 
     /* get the container */
-    vpc = (VLE_path_container *)agt_arg_vpc;
+    vpc = (VLE_path_container *) agt_arg_vpc;
 
     /* it should not be null */
     Assert(vpc != NULL);
@@ -1684,12 +1699,13 @@ Datum age_match_two_vle_edges(PG_FUNCTION_ARGS)
         AGT_ROOT_BINARY_FLAGS(agt_arg_vpc) != AGT_FBINARY_TYPE_VLE_PATH)
     {
         ereport(ERROR,
-            (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-            errmsg("argument 1 of age_match_two_vle_edges must be a VLE_Path_Container")));
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg("argument 1 of age_match_two_vle_edges must be a "
+                        "VLE_Path_Container")));
     }
 
     /* cast argument as a VLE_Path_Container and extract graphid array */
-    left_path = (VLE_path_container *)agt_arg_vpc;
+    left_path = (VLE_path_container *) agt_arg_vpc;
     left_array_size = left_path->graphid_array_size;
     left_array = GET_GRAPHID_ARRAY_FROM_CONTAINER(left_path);
 
@@ -1699,12 +1715,13 @@ Datum age_match_two_vle_edges(PG_FUNCTION_ARGS)
         AGT_ROOT_BINARY_FLAGS(agt_arg_vpc) != AGT_FBINARY_TYPE_VLE_PATH)
     {
         ereport(ERROR,
-            (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-            errmsg("argument 2 of age_match_two_vle_edges must be a VLE_Path_Container")));
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg("argument 2 of age_match_two_vle_edges must be a "
+                        "VLE_Path_Container")));
     }
 
     /* cast argument as a VLE_Path_Container and extract graphid array */
-    right_path = (VLE_path_container *)agt_arg_vpc;
+    right_path = (VLE_path_container *) agt_arg_vpc;
     right_array = GET_GRAPHID_ARRAY_FROM_CONTAINER(right_path);
 
     if (left_array[left_array_size - 1] != right_array[0])
@@ -1740,12 +1757,13 @@ Datum age_match_vle_edge_to_id_qual(PG_FUNCTION_ARGS)
         AGT_ROOT_BINARY_FLAGS(agt_arg_vpc) != AGT_FBINARY_TYPE_VLE_PATH)
     {
         ereport(ERROR,
-            (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-            errmsg("argument 1 of age_match_vle_edge_to_edge_qual must be a VLE_Path_Container")));
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg("argument 1 of age_match_vle_edge_to_edge_qual must "
+                        "be a VLE_Path_Container")));
     }
 
     /* cast argument as a VLE_Path_Container and extract graphid array */
-    vle_path = (VLE_path_container *)agt_arg_vpc;
+    vle_path = (VLE_path_container *) agt_arg_vpc;
     array = GET_GRAPHID_ARRAY_FROM_CONTAINER(vle_path);
 
     /* Get the edge id we are checking the end of the list too */
@@ -1755,7 +1773,8 @@ Datum age_match_vle_edge_to_id_qual(PG_FUNCTION_ARGS)
     {
         ereport(ERROR,
                 (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                 errmsg("argument 2 of age_match_vle_edge_to_edge_qual must be an integer")));
+                 errmsg("argument 2 of age_match_vle_edge_to_edge_qual must "
+                        "be an integer")));
     }
 
     id = get_ith_agtype_value_from_container(&edge_id->root, 0);
@@ -1764,7 +1783,8 @@ Datum age_match_vle_edge_to_id_qual(PG_FUNCTION_ARGS)
     {
         ereport(ERROR,
                 (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                 errmsg("argument 2 of age_match_vle_edge_to_edge_qual must be an integer")));
+                 errmsg("argument 2 of age_match_vle_edge_to_edge_qual must "
+                        "be an integer")));
     }
 
     pos_agt = AG_GET_ARG_AGTYPE_P(2);
@@ -1773,7 +1793,8 @@ Datum age_match_vle_edge_to_id_qual(PG_FUNCTION_ARGS)
     {
         ereport(ERROR,
                 (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                 errmsg("argument 3 of age_match_vle_edge_to_edge_qual must be an integer")));
+                 errmsg("argument 3 of age_match_vle_edge_to_edge_qual must "
+                        "be an integer")));
     }
 
     position = get_ith_agtype_value_from_container(&pos_agt->root, 0);
@@ -1782,7 +1803,8 @@ Datum age_match_vle_edge_to_id_qual(PG_FUNCTION_ARGS)
     {
         ereport(ERROR,
                 (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                 errmsg("argument 3 of age_match_vle_edge_to_edge_qual must be an integer")));
+                 errmsg("argument 3 of age_match_vle_edge_to_edge_qual must "
+                        "be an integer")));
     }
 
     vle_is_on_left = position->val.boolean;
@@ -1810,7 +1832,7 @@ Datum age_match_vle_edge_to_id_qual(PG_FUNCTION_ARGS)
          * Path is like ...[edge]-()-[vle_edge]... Get the vertex at the start
          * of the vle edge and check against id.
          */
-       if (id->val.int_value != array[0])
+        if (id->val.int_value != array[0])
         {
             PG_RETURN_BOOL(false);
         }
@@ -1839,7 +1861,7 @@ agtype_value *agtv_materialize_vle_edges(agtype *agt_arg_vpc)
     Assert(AGT_ROOT_BINARY_FLAGS(agt_arg_vpc) == AGT_FBINARY_TYPE_VLE_PATH);
 
     /* get the container */
-    vpc = (VLE_path_container *)agt_arg_vpc;
+    vpc = (VLE_path_container *) agt_arg_vpc;
 
     /* it should not be null */
     Assert(vpc != NULL);
@@ -1849,7 +1871,6 @@ agtype_value *agtv_materialize_vle_edges(agtype *agt_arg_vpc)
 
     /* convert the agtype_value to agtype and return it */
     return agtv_array;
-
 }
 
 /* PG wrapper function for agtv_materialize_vle_edges */
@@ -1929,18 +1950,20 @@ Datum age_match_vle_terminal_edge(PG_FUNCTION_ARGS)
     /* the VLE_path_container argument cannot be NULL */
     if (PG_ARGISNULL(2))
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                 errmsg("match_vle_terminal_edge() argument 3 must be non NULL")));
+        ereport(
+            ERROR,
+            (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+             errmsg("match_vle_terminal_edge() argument 3 must be non NULL")));
     }
 
     /* one or both vsid and veid needs to be non NULL */
     if (PG_ARGISNULL(0) && PG_ARGISNULL(1))
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                 errmsg("match_vle_terminal_edge() argument 1 or 2 must be non NULL")));
-
+        ereport(
+            ERROR,
+            (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+             errmsg(
+                 "match_vle_terminal_edge() argument 1 or 2 must be non NULL")));
     }
 
     /* get the vpc */
@@ -1949,9 +1972,10 @@ Datum age_match_vle_terminal_edge(PG_FUNCTION_ARGS)
     /* it cannot be NULL */
     if (is_agtype_null(agt_arg_path))
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                 errmsg("match_vle_terminal_edge() argument 3 must be non NULL")));
+        ereport(
+            ERROR,
+            (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+             errmsg("match_vle_terminal_edge() argument 3 must be non NULL")));
     }
 
     /*
@@ -1959,10 +1983,10 @@ Datum age_match_vle_terminal_edge(PG_FUNCTION_ARGS)
      * the container must be an AGT_FBINARY_TYPE_VLE_PATH.
      */
     Assert(AGT_ROOT_IS_BINARY(agt_arg_path));
-    Assert(AGT_ROOT_BINARY_FLAGS(agt_arg_path) == AGT_FBINARY_TYPE_VLE_PATH );
+    Assert(AGT_ROOT_BINARY_FLAGS(agt_arg_path) == AGT_FBINARY_TYPE_VLE_PATH);
 
     /* get the container */
-    vpc = (VLE_path_container *)agt_arg_path;
+    vpc = (VLE_path_container *) agt_arg_path;
 
     /* get the graphid array from the container */
     gida = GET_GRAPHID_ARRAY_FROM_CONTAINER(vpc);
@@ -2004,9 +2028,11 @@ Datum age_match_vle_terminal_edge(PG_FUNCTION_ARGS)
 
     if (!(has_vsid || has_veid))
     {
-            ereport(ERROR,
-                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                 errmsg("match_vle_terminal_edge() argument 1 or 2 must be non NULL")));
+        ereport(
+            ERROR,
+            (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+             errmsg(
+                 "match_vle_terminal_edge() argument 1 or 2 must be non NULL")));
     }
 
     /* compare the path beginning or end points */
@@ -2058,6 +2084,7 @@ Datum age_build_vle_match_edge(PG_FUNCTION_ARGS)
         result.res = push_agtype_value(&result.parse_state, WAGT_VALUE,
                                        &agtv_nstr);
     }
+
     /* create dummy end_id */
     result.res = push_agtype_value(&result.parse_state, WAGT_KEY,
                                    string_to_agtype_value("end_id"));
@@ -2080,11 +2107,11 @@ Datum age_build_vle_match_edge(PG_FUNCTION_ARGS)
         {
             ereport(ERROR,
                     (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                     errmsg("build_vle_match_edge(): properties argument must be an object")));
+                     errmsg("build_vle_match_edge(): properties argument must "
+                            "be an object")));
         }
 
-        add_agtype((Datum)properties, false, &result, AGTYPEOID, false);
-
+        add_agtype((Datum) properties, false, &result, AGTYPEOID, false);
     }
     else
     {
@@ -2126,19 +2153,22 @@ Datum _ag_enforce_edge_uniqueness(PG_FUNCTION_ARGS)
     {
         if (nulls[i])
         {
-             ereport(ERROR,
-                     (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                      errmsg("_ag_enforce_edge_uniqueness argument %d must not be NULL",
-                             i)));
+            ereport(
+                ERROR,
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg(
+                     "_ag_enforce_edge_uniqueness argument %d must not be NULL",
+                     i)));
         }
-        if (types[i] != AGTYPEOID &&
-            types[i] != INT8OID &&
+
+        if (types[i] != AGTYPEOID && types[i] != INT8OID &&
             types[i] != GRAPHIDOID)
         {
-             ereport(ERROR,
-                     (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                      errmsg("_ag_enforce_edge_uniqueness argument %d must be AGTYPE, INT8, or GRAPHIDOID",
-                             i)));
+            ereport(ERROR,
+                    (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                     errmsg("_ag_enforce_edge_uniqueness argument %d must be "
+                            "AGTYPE, INT8, or GRAPHIDOID",
+                            i)));
         }
     }
 
@@ -2161,8 +2191,7 @@ Datum _ag_enforce_edge_uniqueness(PG_FUNCTION_ARGS)
         agt_i = DATUM_GET_AGTYPE_P(args[i]);
 
         /* if the argument is an AGTYPE VLE_path_container */
-        if (types[i] == AGTYPEOID &&
-            AGT_ROOT_IS_BINARY(agt_i) &&
+        if (types[i] == AGTYPEOID && AGT_ROOT_IS_BINARY(agt_i) &&
             AGT_ROOT_BINARY_FLAGS(agt_i) == AGT_FBINARY_TYPE_VLE_PATH)
         {
             VLE_path_container *vpc = NULL;
@@ -2171,7 +2200,7 @@ Datum _ag_enforce_edge_uniqueness(PG_FUNCTION_ARGS)
             int64 j = 0;
 
             /* cast to VLE_path_container */
-            vpc = (VLE_path_container *)agt_i;
+            vpc = (VLE_path_container *) agt_i;
 
             /* get the graphid array */
             graphid_array = GET_GRAPHID_ARRAY_FROM_CONTAINER(vpc);
@@ -2180,7 +2209,7 @@ Datum _ag_enforce_edge_uniqueness(PG_FUNCTION_ARGS)
             graphid_array_size = vpc->graphid_array_size;
 
             /* insert all the edges in the vpc, into the hash table */
-            for (j = 1; j < graphid_array_size - 1; j+=2)
+            for (j = 1; j < graphid_array_size - 1; j += 2)
             {
                 int64 *value = NULL;
                 bool found = false;
@@ -2190,8 +2219,8 @@ Datum _ag_enforce_edge_uniqueness(PG_FUNCTION_ARGS)
                 edge_id = graphid_array[j];
 
                 /* insert the edge id */
-                value = (int64 *)hash_search(exists_hash, (void *)&edge_id,
-                                             HASH_ENTER, &found);
+                value = (int64 *) hash_search(exists_hash, (void *) &edge_id,
+                                              HASH_ENTER, &found);
 
                 /* if we found it, we're done, we have a duplicate */
                 if (found)
@@ -2207,8 +2236,7 @@ Datum _ag_enforce_edge_uniqueness(PG_FUNCTION_ARGS)
             }
         }
         /* if it is a regular AGTYPE scalar */
-        else if (types[i] == AGTYPEOID &&
-                 AGT_ROOT_IS_SCALAR(agt_i))
+        else if (types[i] == AGTYPEOID && AGT_ROOT_IS_SCALAR(agt_i))
         {
             agtype_value *agtv_id = NULL;
             int64 *value = NULL;
@@ -2221,15 +2249,16 @@ Datum _ag_enforce_edge_uniqueness(PG_FUNCTION_ARGS)
             {
                 ereport(ERROR,
                         (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                         errmsg("_ag_enforce_edge_uniqueness parameter %d must resolve to an agtype integer",
+                         errmsg("_ag_enforce_edge_uniqueness parameter %d must "
+                                "resolve to an agtype integer",
                                 i)));
             }
 
             edge_id = agtv_id->val.int_value;
 
             /* insert the edge_id */
-            value = (int64 *)hash_search(exists_hash, (void *)&edge_id,
-                                         HASH_ENTER, &found);
+            value = (int64 *) hash_search(exists_hash, (void *) &edge_id,
+                                          HASH_ENTER, &found);
 
             /* if we found it, we're done, we have a duplicate */
             if (found)
@@ -2244,8 +2273,7 @@ Datum _ag_enforce_edge_uniqueness(PG_FUNCTION_ARGS)
             }
         }
         /* if it is an INT8OID or a GRAPHIDOID */
-        else if (types[i] == INT8OID ||
-                 types[i] == GRAPHIDOID)
+        else if (types[i] == INT8OID || types[i] == GRAPHIDOID)
         {
             graphid edge_id = 0;
             bool found = false;
@@ -2254,8 +2282,8 @@ Datum _ag_enforce_edge_uniqueness(PG_FUNCTION_ARGS)
             edge_id = DatumGetInt64(args[i]);
 
             /* insert the edge_id */
-            value = (int64 *)hash_search(exists_hash, (void *)&edge_id,
-                                         HASH_ENTER, &found);
+            value = (int64 *) hash_search(exists_hash, (void *) &edge_id,
+                                          HASH_ENTER, &found);
 
             /* if we found it, we're done, we have a duplicate */
             if (found)
@@ -2272,10 +2300,11 @@ Datum _ag_enforce_edge_uniqueness(PG_FUNCTION_ARGS)
         /* it is neither a VLE_path_container, AGTYPE, INT8, or a GRAPHIDOID */
         else
         {
-            ereport(ERROR,
-                    (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-                     errmsg("_ag_enforce_edge_uniqueness invalid parameter type %d",
-                            i)));
+            ereport(
+                ERROR,
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                 errmsg("_ag_enforce_edge_uniqueness invalid parameter type %d",
+                        i)));
         }
     }
 

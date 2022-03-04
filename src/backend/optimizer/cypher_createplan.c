@@ -19,8 +19,6 @@
 
 #include "postgres.h"
 
-#include "access/sysattr.h"
-#include "catalog/pg_type_d.h"
 #include "nodes/extensible.h"
 #include "nodes/nodes.h"
 #include "nodes/pg_list.h"
@@ -39,8 +37,8 @@ const CustomScanMethods cypher_merge_plan_methods = {
     "Cypher Merge", create_cypher_merge_plan_state};
 
 Plan *plan_cypher_create_path(PlannerInfo *root, RelOptInfo *rel,
-                              CustomPath *best_path, List *tlist,
-                              List *clauses, List *custom_plans)
+                              CustomPath *best_path, List *tlist, List *clauses,
+                              List *custom_plans)
 {
     CustomScan *cs;
     Plan *subplan = linitial(custom_plans);
@@ -77,12 +75,12 @@ Plan *plan_cypher_create_path(PlannerInfo *root, RelOptInfo *rel,
     cs->custom_relids = NULL;
     cs->methods = &cypher_create_plan_methods;
 
-    return (Plan *)cs;
+    return (Plan *) cs;
 }
 
 Plan *plan_cypher_set_path(PlannerInfo *root, RelOptInfo *rel,
-                           CustomPath *best_path, List *tlist,
-                           List *clauses, List *custom_plans)
+                           CustomPath *best_path, List *tlist, List *clauses,
+                           List *custom_plans)
 {
     CustomScan *cs;
     Plan *subplan = linitial(custom_plans);
@@ -120,7 +118,7 @@ Plan *plan_cypher_set_path(PlannerInfo *root, RelOptInfo *rel,
     cs->custom_relids = NULL;
     cs->methods = &cypher_set_plan_methods;
 
-    return (Plan *)cs;
+    return (Plan *) cs;
 }
 
 /*
@@ -128,8 +126,8 @@ Plan *plan_cypher_set_path(PlannerInfo *root, RelOptInfo *rel,
  * to the delete Plan node
  */
 Plan *plan_cypher_delete_path(PlannerInfo *root, RelOptInfo *rel,
-                           CustomPath *best_path, List *tlist,
-                           List *clauses, List *custom_plans)
+                              CustomPath *best_path, List *tlist, List *clauses,
+                              List *custom_plans)
 {
     CustomScan *cs;
     Plan *subplan = linitial(custom_plans);
@@ -181,7 +179,7 @@ Plan *plan_cypher_delete_path(PlannerInfo *root, RelOptInfo *rel,
     cs->custom_relids = NULL;
     cs->methods = &cypher_delete_plan_methods;
 
-    return (Plan *)cs;
+    return (Plan *) cs;
 }
 
 /*
@@ -189,8 +187,8 @@ Plan *plan_cypher_delete_path(PlannerInfo *root, RelOptInfo *rel,
  * to the merge Plan node
  */
 Plan *plan_cypher_merge_path(PlannerInfo *root, RelOptInfo *rel,
-                           CustomPath *best_path, List *tlist,
-                           List *clauses, List *custom_plans)
+                             CustomPath *best_path, List *tlist, List *clauses,
+                             List *custom_plans)
 {
     CustomScan *cs;
     Plan *subplan = linitial(custom_plans);
@@ -242,5 +240,5 @@ Plan *plan_cypher_merge_path(PlannerInfo *root, RelOptInfo *rel,
     cs->custom_relids = NULL;
     cs->methods = &cypher_merge_plan_methods;
 
-    return (Plan *)cs;
+    return (Plan *) cs;
 }

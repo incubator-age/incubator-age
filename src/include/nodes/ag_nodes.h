@@ -78,29 +78,30 @@ void register_ag_nodes(void);
 ExtensibleNode *_new_ag_node(Size size, ag_node_tag tag);
 
 #define new_ag_node(size, tag) \
-    ( \
-        AssertMacro((size) >= sizeof(ExtensibleNode)), \
-        AssertMacro(tag != ag_node_invalid_t), \
-        _new_ag_node(size, tag) \
-    )
+    (AssertMacro((size) >= sizeof(ExtensibleNode)), \
+     AssertMacro(tag != ag_node_invalid_t), _new_ag_node(size, tag))
 
 #define make_ag_node(type) \
-    ((type *)new_ag_node(sizeof(type), CppConcat(type, _t)))
+    ((type *) new_ag_node(sizeof(type), CppConcat(type, _t)))
 
 static inline bool _is_ag_node(Node *node, const char *extnodename)
 {
     ExtensibleNode *extnode;
 
     if (!IsA(node, ExtensibleNode))
+    {
         return false;
+    }
 
-    extnode = (ExtensibleNode *)node;
+    extnode = (ExtensibleNode *) node;
     if (strcmp(extnode->extnodename, extnodename) == 0)
+    {
         return true;
+    }
 
     return false;
 }
 
-#define is_ag_node(node, type) _is_ag_node((Node *)(node), CppAsString(type))
+#define is_ag_node(node, type) _is_ag_node((Node *) (node), CppAsString(type))
 
 #endif

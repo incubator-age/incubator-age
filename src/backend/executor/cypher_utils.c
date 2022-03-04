@@ -6,47 +6,45 @@
  *
  * Portions Copyright (c) 1994, The Regents of the University of California
  *
- * Permission to use, copy, modify, and distribute this software and its documentation for any purpose,
- * without fee, and without a written agreement is hereby granted, provided that the above copyright notice
- * and this paragraph and the following two paragraphs appear in all copies.
+ * Permission to use, copy, modify, and distribute this software and its
+ * documentation for any purpose, without fee, and without a written agreement
+ * is hereby granted, provided that the above copyright notice and this
+ * paragraph and the following two paragraphs appear in all copies.
  *
- * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS,
- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY
- * OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
+ * DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING
+ * LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION,
+ * EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  *
- * THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING,
- * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ * FITNESS FOR A PARTICULAR PURPOSE.
  *
- * THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA
- * HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF
+ * CALIFORNIA HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+ * ENHANCEMENTS, OR MODIFICATIONS.
  */
 
 #include "postgres.h"
 
-#include "access/htup_details.h"
-#include "access/sysattr.h"
-#include "access/xact.h"
+#include "access/heapam.h"
 #include "access/multixact.h"
+#include "access/xact.h"
 #include "nodes/extensible.h"
 #include "nodes/makefuncs.h"
-#include "nodes/nodes.h"
-#include "nodes/nodeFuncs.h"
-#include "nodes/plannodes.h"
-#include "parser/parsetree.h"
 #include "parser/parse_relation.h"
-#include "storage/procarray.h"
 #include "utils/rel.h"
 
 #include "catalog/ag_label.h"
 #include "commands/label_commands.h"
-#include "executor/cypher_executor.h"
 #include "executor/cypher_utils.h"
-#include "utils/agtype.h"
 #include "utils/ag_cache.h"
+#include "utils/agtype.h"
 #include "utils/graphid.h"
 
-ResultRelInfo *create_entity_result_rel_info(EState *estate, char *graph_name, char *label_name)
+ResultRelInfo *create_entity_result_rel_info(EState *estate, char *graph_name,
+                                             char *label_name)
 {
     RangeVar *rv;
     Relation label_relation;
@@ -76,8 +74,8 @@ ResultRelInfo *create_entity_result_rel_info(EState *estate, char *graph_name, c
     return resultRelInfo;
 }
 
-TupleTableSlot *populate_vertex_tts(
-    TupleTableSlot *elemTupleSlot, agtype_value *id, agtype_value *properties)
+TupleTableSlot *populate_vertex_tts(TupleTableSlot *elemTupleSlot,
+                                    agtype_value *id, agtype_value *properties)
 {
     bool properties_isnull;
 
@@ -89,7 +87,8 @@ TupleTableSlot *populate_vertex_tts(
 
     properties_isnull = properties == NULL;
 
-    elemTupleSlot->tts_values[vertex_tuple_id] = GRAPHID_GET_DATUM(id->val.int_value);
+    elemTupleSlot->tts_values[vertex_tuple_id] =
+        GRAPHID_GET_DATUM(id->val.int_value);
     elemTupleSlot->tts_isnull[vertex_tuple_id] = false;
 
     elemTupleSlot->tts_values[vertex_tuple_properties] =
@@ -99,9 +98,9 @@ TupleTableSlot *populate_vertex_tts(
     return elemTupleSlot;
 }
 
-TupleTableSlot *populate_edge_tts(
-    TupleTableSlot *elemTupleSlot, agtype_value *id, agtype_value *startid,
-    agtype_value *endid, agtype_value *properties)
+TupleTableSlot *populate_edge_tts(TupleTableSlot *elemTupleSlot,
+                                  agtype_value *id, agtype_value *startid,
+                                  agtype_value *endid, agtype_value *properties)
 {
     bool properties_isnull;
 
@@ -110,6 +109,7 @@ TupleTableSlot *populate_edge_tts(
         ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                         errmsg("edge id field cannot be NULL")));
     }
+
     if (startid == NULL)
     {
         ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -143,16 +143,15 @@ TupleTableSlot *populate_edge_tts(
     return elemTupleSlot;
 }
 
-
 /*
  * Find out if the entity still exists. This is for 'implicit' deletion
  * of an entity.
  */
-bool entity_exists(EState *estate, Oid graph_oid, graphid id)
+bool entity_exists(EState *estate, uint32 graph_id, graphid id)
 {
     label_cache_data *label;
     ScanKeyData scan_keys[1];
-    HeapScanDesc scan_desc;
+    TableScanDesc scan_desc;
     HeapTuple tuple;
     Relation rel;
     bool result = true;
@@ -161,14 +160,14 @@ bool entity_exists(EState *estate, Oid graph_oid, graphid id)
      * Extract the label id from the graph id and get the table name
      * the entity is part of.
      */
-    label = search_label_graph_id_cache(graph_oid, GET_LABEL_ID(id));
+    label = search_label_graph_id_cache(graph_id, GET_LABEL_ID(id));
 
     // Setup the scan key to be the graphid
-    ScanKeyInit(&scan_keys[0], 1, BTEqualStrategyNumber,
-                F_GRAPHIDEQ, GRAPHID_GET_DATUM(id));
+    ScanKeyInit(&scan_keys[0], 1, BTEqualStrategyNumber, F_GRAPHIDEQ,
+                GRAPHID_GET_DATUM(id));
 
-    rel = heap_open(label->relation, RowExclusiveLock);
-    scan_desc = heap_beginscan(rel, estate->es_snapshot, 1, scan_keys);
+    rel = table_open(label->relation, RowExclusiveLock);
+    scan_desc = table_beginscan(rel, estate->es_snapshot, 1, scan_keys);
 
     tuple = heap_getnext(scan_desc, ForwardScanDirection);
 
@@ -182,7 +181,7 @@ bool entity_exists(EState *estate, Oid graph_oid, graphid id)
     }
 
     heap_endscan(scan_desc);
-    heap_close(rel, RowExclusiveLock);
+    table_close(rel, RowExclusiveLock);
 
     return result;
 }
@@ -192,13 +191,12 @@ bool entity_exists(EState *estate, Oid graph_oid, graphid id)
  * constraints have not been violated.
  */
 HeapTuple insert_entity_tuple(ResultRelInfo *resultRelInfo,
-                              TupleTableSlot *elemTupleSlot,
-                              EState *estate)
+                              TupleTableSlot *elemTupleSlot, EState *estate)
 {
     HeapTuple tuple;
 
     ExecStoreVirtualTuple(elemTupleSlot);
-    tuple = ExecMaterializeSlot(elemTupleSlot);
+    tuple = ExecFetchSlotHeapTuple(elemTupleSlot, true, NULL);
 
     // Check the constraints of the tuple
     tuple->t_tableOid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
@@ -214,8 +212,11 @@ HeapTuple insert_entity_tuple(ResultRelInfo *resultRelInfo,
     // Insert index entries for the tuple
     if (resultRelInfo->ri_NumIndices > 0)
     {
-        ExecInsertIndexTuples(elemTupleSlot, &(tuple->t_self), estate, false,
-                              NULL, NIL);
+        // FIXME: Alex Kwak
+        elemTupleSlot->tts_tableOid =
+            RelationGetRelid(resultRelInfo->ri_RelationDesc);
+        elemTupleSlot->tts_tid = (tuple->t_self);
+        ExecInsertIndexTuples(elemTupleSlot, estate, false, NULL, NIL);
     }
 
     return tuple;

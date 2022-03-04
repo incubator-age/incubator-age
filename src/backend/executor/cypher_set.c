@@ -19,35 +19,25 @@
 
 #include "postgres.h"
 
-#include "access/sysattr.h"
-#include "access/htup_details.h"
-#include "access/tableam.h"
 #include "access/heapam.h"
+#include "access/htup_details.h"
 #include "access/xact.h"
-#include "storage/bufmgr.h"
 #include "executor/tuptable.h"
 #include "nodes/execnodes.h"
 #include "nodes/extensible.h"
 #include "nodes/nodes.h"
 #include "nodes/plannodes.h"
-#include "parser/parsetree.h"
-#include "parser/parse_relation.h"
-#include "access/table.h"
 #include "rewrite/rewriteHandler.h"
+#include "storage/bufmgr.h"
 #include "utils/rel.h"
 
-#include "catalog/ag_label.h"
-#include "commands/label_commands.h"
 #include "executor/cypher_executor.h"
 #include "executor/cypher_utils.h"
-#include "parser/cypher_parse_node.h"
 #include "nodes/cypher_nodes.h"
-#include "access/tableam.h"
 #include "utils/agtype.h"
 #include "utils/graphid.h"
 
-static void begin_cypher_set(CustomScanState *node, EState *estate,
-                                int eflags);
+static void begin_cypher_set(CustomScanState *node, EState *estate, int eflags);
 static TupleTableSlot *exec_cypher_set(CustomScanState *node);
 static void end_cypher_set(CustomScanState *node);
 static void rescan_cypher_set(CustomScanState *node);
@@ -58,24 +48,22 @@ static HeapTuple update_entity_tuple(ResultRelInfo *resultRelInfo,
                                      EState *estate, HeapTuple old_tuple);
 
 const CustomExecMethods cypher_set_exec_methods = {SET_SCAN_STATE_NAME,
-                                                      begin_cypher_set,
-                                                      exec_cypher_set,
-                                                      end_cypher_set,
-                                                      rescan_cypher_set,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL};
+                                                   begin_cypher_set,
+                                                   exec_cypher_set,
+                                                   end_cypher_set,
+                                                   rescan_cypher_set,
+                                                   NULL,
+                                                   NULL,
+                                                   NULL,
+                                                   NULL,
+                                                   NULL,
+                                                   NULL,
+                                                   NULL,
+                                                   NULL};
 
-static void begin_cypher_set(CustomScanState *node, EState *estate,
-                             int eflags)
+static void begin_cypher_set(CustomScanState *node, EState *estate, int eflags)
 {
-    cypher_set_custom_scan_state *css =
-        (cypher_set_custom_scan_state *)node;
+    cypher_set_custom_scan_state *css = (cypher_set_custom_scan_state *) node;
     Plan *subplan;
 
     Assert(list_length(css->cs->custom_plans) == 1);
@@ -86,7 +74,8 @@ static void begin_cypher_set(CustomScanState *node, EState *estate,
     ExecAssignExprContext(estate, &node->ss.ps);
 
     ExecInitScanTupleSlot(estate, &node->ss,
-                          ExecGetResultType(node->ss.ps.lefttree),&TTSOpsHeapTuple);
+                          ExecGetResultType(node->ss.ps.lefttree),
+                          &TTSOpsHeapTuple);
 
     if (!CYPHER_CLAUSE_IS_TERMINAL(css->flags))
     {
@@ -103,7 +92,9 @@ static void begin_cypher_set(CustomScanState *node, EState *estate,
      * that have modified the command id.
      */
     if (estate->es_output_cid == 0)
+    {
         estate->es_output_cid = estate->es_snapshot->curcid;
+    }
 
     Increment_Estate_CommandId(estate);
 }
@@ -117,47 +108,54 @@ static HeapTuple update_entity_tuple(ResultRelInfo *resultRelInfo,
     TM_FailureData hufd;
     TM_Result lock_result;
     TM_Result update_result;
+    Buffer buffer;
 
-    ResultRelInfo *saved_resultRelInfo = saved_resultRelInfo;;
+    ResultRelInfo *saved_resultRelInfo = saved_resultRelInfo;
     estate->es_result_relation_info = resultRelInfo;
 
     lockmode = ExecUpdateLockMode(estate, resultRelInfo);
 
-    lock_result = table_tuple_lock(resultRelInfo->ri_RelationDesc, &(elemTupleSlot->tts_tid), GetLatestSnapshot(),
-                                  elemTupleSlot, GetCurrentCommandId(false), lockmode,
-                                  LockWaitBlock, 0, &hufd);
+    lock_result = heap_lock_tuple(resultRelInfo->ri_RelationDesc, old_tuple,
+                                  GetCurrentCommandId(false), lockmode,
+                                  LockWaitBlock, false, &buffer, &hufd);
 
-    if (lock_result == TM_Updated)
+    if (lock_result == TM_Ok)
     {
-        HeapTuple tuple;
         ExecStoreVirtualTuple(elemTupleSlot);
-        ExecMaterializeSlot(elemTupleSlot);
-
         tuple = ExecFetchSlotHeapTuple(elemTupleSlot, true, NULL);
         tuple->t_self = old_tuple->t_self;
-        tuple->t_tableOid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
 
+        // Check the constraints of the tuple
+        tuple->t_tableOid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
         if (resultRelInfo->ri_RelationDesc->rd_att->constr != NULL)
+        {
             ExecConstraints(resultRelInfo, elemTupleSlot, estate);
+        }
 
         // Insert the tuple normally
-        update_result = heap_update(resultRelInfo->ri_RelationDesc,
+        update_result =
+            heap_update(resultRelInfo->ri_RelationDesc, &(tuple->t_self), tuple,
+                        GetCurrentCommandId(true),
+                        estate->es_crosscheck_snapshot, true, &hufd, &lockmode);
 
-                                    &(tuple->t_self), tuple,
-                                    GetCurrentCommandId(true),
-                                    estate->es_crosscheck_snapshot, true, &hufd,
-                                    &lockmode);
-
-        if (update_result != TM_BeingModified)
-        ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
-                        errmsg("Entity failed to be updated: %i",
-                               update_result)));
+        if (update_result != TM_Ok)
+        {
+            ereport(ERROR,
+                    (errcode(ERRCODE_INTERNAL_ERROR),
+                     errmsg("Entity failed to be updated: %i", update_result)));
+        }
 
         // Insert index entries for the tuple
         if (resultRelInfo->ri_NumIndices > 0)
-            ExecInsertIndexTuples(elemTupleSlot, estate,
-                                  false, NULL, NIL);
+        {
+            elemTupleSlot->tts_tableOid =
+                RelationGetRelid(resultRelInfo->ri_RelationDesc);
+            elemTupleSlot->tts_tid = (tuple->t_self);
+            ExecInsertIndexTuples(elemTupleSlot, estate, false, NULL, NIL);
+        }
     }
+
+    ReleaseBuffer(buffer);
 
     estate->es_result_relation_info = saved_resultRelInfo;
 
@@ -170,16 +168,16 @@ static HeapTuple update_entity_tuple(ResultRelInfo *resultRelInfo,
  */
 static void process_all_tuples(CustomScanState *node)
 {
-    cypher_set_custom_scan_state *css = (cypher_set_custom_scan_state *)node;
+    cypher_set_custom_scan_state *css = (cypher_set_custom_scan_state *) node;
     TupleTableSlot *slot;
     EState *estate = css->css.ss.ps.state;
 
     do
     {
         process_update_list(node);
-        Decrement_Estate_CommandId(estate)
+        Decrement_Estate_CommandId(estate);
         slot = ExecProcNode(node->ss.ps.lefttree);
-        Increment_Estate_CommandId(estate)
+        Increment_Estate_CommandId(estate);
     } while (!TupIsNull(slot));
 }
 
@@ -194,7 +192,9 @@ static bool check_path(agtype_value *path, graphid updated_id)
         agtype_value *id = GET_AGTYPE_VALUE_OBJECT_VALUE(elem, "id");
 
         if (updated_id == id->val.int_value)
+        {
             return true;
+        }
     }
 
     return false;
@@ -205,7 +205,7 @@ static agtype_value *replace_entity_in_path(agtype_value *path,
                                             agtype *updated_entity)
 {
     agtype_iterator *it;
-    agtype_iterator_token tok = WAGT_DONE;
+    agtype_iterator_token tok;
     agtype_parse_state *parse_state = NULL;
     agtype_value *r;
     agtype_value *parsed_agtype_value = NULL;
@@ -218,8 +218,7 @@ static agtype_value *replace_entity_in_path(agtype_value *path,
     it = agtype_iterator_init(&prop_agtype->root);
     tok = agtype_iterator_next(&it, r, true);
 
-    parsed_agtype_value = push_agtype_value(&parse_state, tok,
-                                            tok < WAGT_BEGIN_ARRAY ? r : NULL);
+    push_agtype_value(&parse_state, tok, tok < WAGT_BEGIN_ARRAY ? r : NULL);
 
     for (i = 0; i < path->val.array.num_elems; i++)
     {
@@ -228,17 +227,23 @@ static agtype_value *replace_entity_in_path(agtype_value *path,
         elem = &path->val.array.elems[i];
 
         if (elem->type != AGTV_VERTEX && elem->type != AGTV_EDGE)
+        {
             ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                             errmsg("unsupported agtype found in a path")));
+        }
 
         id = GET_AGTYPE_VALUE_OBJECT_VALUE(elem, "id");
 
         if (updated_id == id->val.int_value)
-            parsed_agtype_value = push_agtype_value(&parse_state, WAGT_ELEM,
+        {
+            push_agtype_value(
+                &parse_state, WAGT_ELEM,
                 get_ith_agtype_value_from_container(&updated_entity->root, 0));
+        }
         else
-            parsed_agtype_value = push_agtype_value(&parse_state, WAGT_ELEM,
-                                                    elem);
+        {
+            push_agtype_value(&parse_state, WAGT_ELEM, elem);
+        }
     }
 
     parsed_agtype_value = push_agtype_value(&parse_state, WAGT_END_ARRAY, NULL);
@@ -250,7 +255,7 @@ static agtype_value *replace_entity_in_path(agtype_value *path,
 static void update_all_paths(CustomScanState *node, graphid id,
                              agtype *updated_entity)
 {
-    cypher_set_custom_scan_state *css = (cypher_set_custom_scan_state *)node;
+    cypher_set_custom_scan_state *css = (cypher_set_custom_scan_state *) node;
     ExprContext *econtext = css->css.ss.ps.ps_ExprContext;
     TupleTableSlot *scanTupleSlot = econtext->ecxt_scantuple;
     int i;
@@ -261,21 +266,28 @@ static void update_all_paths(CustomScanState *node, graphid id,
         agtype_value *original_entity_value;
 
         if (scanTupleSlot->tts_tupleDescriptor->attrs[i].atttypid != AGTYPEOID)
+        {
             continue;
+        }
 
         if (scanTupleSlot->tts_isnull[i])
+        {
             continue;
+        }
 
         original_entity = DATUM_GET_AGTYPE_P(scanTupleSlot->tts_values[i]);
-        original_entity_value = get_ith_agtype_value_from_container(&original_entity->root, 0);
+        original_entity_value =
+            get_ith_agtype_value_from_container(&original_entity->root, 0);
 
         if (original_entity_value->type == AGTV_PATH)
         {
             if (check_path(original_entity_value, id))
             {
-                agtype_value *new_path = replace_entity_in_path(original_entity_value, id, updated_entity);
+                agtype_value *new_path = replace_entity_in_path(
+                    original_entity_value, id, updated_entity);
 
-                scanTupleSlot->tts_values[i] = AGTYPE_P_GET_DATUM(agtype_value_to_agtype(new_path));
+                scanTupleSlot->tts_values[i] =
+                    AGTYPE_P_GET_DATUM(agtype_value_to_agtype(new_path));
             }
         }
     }
@@ -283,7 +295,7 @@ static void update_all_paths(CustomScanState *node, graphid id,
 
 static void process_update_list(CustomScanState *node)
 {
-    cypher_set_custom_scan_state *css = (cypher_set_custom_scan_state *)node;
+    cypher_set_custom_scan_state *css = (cypher_set_custom_scan_state *) node;
     ExprContext *econtext = css->css.ss.ps.ps_ExprContext;
     TupleTableSlot *scanTupleSlot = econtext->ecxt_scantuple;
     ListCell *lc;
@@ -306,7 +318,7 @@ static void process_update_list(CustomScanState *node)
     {
         cypher_update_item *update_item = NULL;
 
-        update_item = (cypher_update_item *)lfirst(lc);
+        update_item = (cypher_update_item *) lfirst(lc);
         luindex[update_item->entity_position - 1] = lidx;
 
         /* increment the loop index */
@@ -337,30 +349,39 @@ static void process_update_list(CustomScanState *node)
         HeapTuple heap_tuple;
         char *clause_name = css->set_list->clause_name;
 
-        update_item = (cypher_update_item *)lfirst(lc);
+        update_item = (cypher_update_item *) lfirst(lc);
 
         /*
          * If the entity is null, we can skip this update. this will be
          * possible when the OPTIONAL MATCH clause is implemented.
          */
         if (scanTupleSlot->tts_isnull[update_item->entity_position - 1])
+        {
             continue;
+        }
 
-        if (scanTupleSlot->tts_tupleDescriptor->attrs[update_item->entity_position -1].atttypid != AGTYPEOID)
-            ereport(ERROR,
-                    (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                     errmsg("age %s clause can only update agtype",
-                            clause_name)));
+        if (scanTupleSlot->tts_tupleDescriptor
+                ->attrs[update_item->entity_position - 1]
+                .atttypid != AGTYPEOID)
+        {
+            ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                            errmsg("age %s clause can only update agtype",
+                                   clause_name)));
+        }
 
-        original_entity = DATUM_GET_AGTYPE_P(scanTupleSlot->tts_values[update_item->entity_position - 1]);
-        original_entity_value = get_ith_agtype_value_from_container(&original_entity->root, 0);
+        original_entity = DATUM_GET_AGTYPE_P(
+            scanTupleSlot->tts_values[update_item->entity_position - 1]);
+        original_entity_value =
+            get_ith_agtype_value_from_container(&original_entity->root, 0);
 
         if (original_entity_value->type != AGTV_VERTEX &&
             original_entity_value->type != AGTV_EDGE)
+        {
             ereport(ERROR,
                     (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                      errmsg("age %s clause can only update vertex and edges",
                             clause_name)));
+        }
 
         /* get the id and label for later */
         id = GET_AGTYPE_VALUE_OBJECT_VALUE(original_entity_value, "id");
@@ -368,8 +389,8 @@ static void process_update_list(CustomScanState *node)
         label_name = pnstrdup(label->val.string.val, label->val.string.len);
 
         /* get the properties we need to update */
-        original_properties = GET_AGTYPE_VALUE_OBJECT_VALUE(original_entity_value,
-                                                            "properties");
+        original_properties =
+            GET_AGTYPE_VALUE_OBJECT_VALUE(original_entity_value, "properties");
 
         /*
          * Determine if the property should be removed. This will be because
@@ -377,34 +398,44 @@ static void process_update_list(CustomScanState *node)
          * NULL. It will be possible for a variable to be NULL when OPTIONAL
          * MATCH is implemented.
          */
-        if(update_item->remove_item)
+        if (update_item->remove_item)
+        {
             remove_property = true;
+        }
         else
-            remove_property = scanTupleSlot->tts_isnull[update_item->prop_position - 1];
+        {
+            remove_property =
+                scanTupleSlot->tts_isnull[update_item->prop_position - 1];
+        }
 
         /*
          * If we need to remove the property, set the value to NULL. Otherwise
          * fetch the evaluated expression from the tuble slot.
          */
         if (remove_property)
+        {
             new_property_value = NULL;
+        }
         else
-            new_property_value = DATUM_GET_AGTYPE_P(scanTupleSlot->tts_values[update_item->prop_position - 1]);
+        {
+            new_property_value = DATUM_GET_AGTYPE_P(
+                scanTupleSlot->tts_values[update_item->prop_position - 1]);
+        }
 
         /*
          * Alter the properties Agtype value to contain or remove the updated
          * property.
          */
-        altered_properties = alter_property_value(original_properties,
-                                                  update_item->prop_name,
-                                                  new_property_value,
-                                                  remove_property);
+        altered_properties =
+            alter_property_value(original_properties, update_item->prop_name,
+                                 new_property_value, remove_property);
 
-        resultRelInfo = create_entity_result_rel_info(estate,
-                                                      css->set_list->graph_name,
-                                                      label_name);
+        resultRelInfo = create_entity_result_rel_info(
+            estate, css->set_list->graph_name, label_name);
 
-        slot = ExecInitExtraTupleSlot(estate, RelationGetDescr(resultRelInfo->ri_RelationDesc), &TTSOpsHeapTuple);
+        slot = ExecInitExtraTupleSlot(
+            estate, RelationGetDescr(resultRelInfo->ri_RelationDesc),
+            &TTSOpsHeapTuple);
 
         /*
          *  Now that we have the updated properties, create a either a vertex or
@@ -413,43 +444,49 @@ static void process_update_list(CustomScanState *node)
          */
         if (original_entity_value->type == AGTV_VERTEX)
         {
-            new_entity = make_vertex(GRAPHID_GET_DATUM(id->val.int_value),
-                                     CStringGetDatum(label_name),
-                                     AGTYPE_P_GET_DATUM(agtype_value_to_agtype(altered_properties)));
+            new_entity = make_vertex(
+                GRAPHID_GET_DATUM(id->val.int_value),
+                CStringGetDatum(label_name),
+                AGTYPE_P_GET_DATUM(agtype_value_to_agtype(altered_properties)));
 
             slot = populate_vertex_tts(slot, id, altered_properties);
         }
         else if (original_entity_value->type == AGTV_EDGE)
         {
-            agtype_value *startid = GET_AGTYPE_VALUE_OBJECT_VALUE(original_entity_value, "start_id");
-            agtype_value *endid = GET_AGTYPE_VALUE_OBJECT_VALUE(original_entity_value, "end_id");
+            agtype_value *startid = GET_AGTYPE_VALUE_OBJECT_VALUE(
+                original_entity_value, "start_id");
+            agtype_value *endid =
+                GET_AGTYPE_VALUE_OBJECT_VALUE(original_entity_value, "end_id");
 
-            new_entity = make_edge(GRAPHID_GET_DATUM(id->val.int_value),
-                                   GRAPHID_GET_DATUM(startid->val.int_value),
-                                   GRAPHID_GET_DATUM(endid->val.int_value),
-                                   CStringGetDatum(label_name),
-                                   AGTYPE_P_GET_DATUM(agtype_value_to_agtype(altered_properties)));
+            new_entity = make_edge(
+                GRAPHID_GET_DATUM(id->val.int_value),
+                GRAPHID_GET_DATUM(startid->val.int_value),
+                GRAPHID_GET_DATUM(endid->val.int_value),
+                CStringGetDatum(label_name),
+                AGTYPE_P_GET_DATUM(agtype_value_to_agtype(altered_properties)));
 
             slot = populate_edge_tts(slot, id, startid, endid,
                                      altered_properties);
         }
-	else
-	{
-            ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                            errmsg("age %s clause can only update vertex and edges",
-                                   clause_name)));
-	}
+        else
+        {
+            ereport(ERROR,
+                    (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                     errmsg("age %s clause can only update vertex and edges",
+                            clause_name)));
+        }
 
         /* place the datum in its tuple table slot position. */
-        scanTupleSlot->tts_values[update_item->entity_position - 1] = new_entity;
+        scanTupleSlot->tts_values[update_item->entity_position - 1] =
+            new_entity;
 
         /*
          * If the tuple table slot has paths, we need to inspect them to see if
          * the updated entity is contained within them and replace the entity
          * if it is.
          */
-        update_all_paths(node,
-                         id->val.int_value, DATUM_GET_AGTYPE_P(new_entity));
+        update_all_paths(node, id->val.int_value,
+                         DATUM_GET_AGTYPE_P(new_entity));
 
         /*
          * If the last update index for the entity is equal to the current loop
@@ -468,7 +505,7 @@ static void process_update_list(CustomScanState *node)
              * keys.
              */
             scan_desc = table_beginscan(resultRelInfo->ri_RelationDesc,
-                                       estate->es_snapshot, 1, scan_keys);
+                                        estate->es_snapshot, 1, scan_keys);
             /* Retrieve the tuple. */
             heap_tuple = heap_getnext(scan_desc, ForwardScanDirection);
 
@@ -476,11 +513,11 @@ static void process_update_list(CustomScanState *node)
              * If the heap tuple still exists (It wasn't deleted between the
              * match and this SET/REMOVE) update the heap_tuple.
              */
-            if(HeapTupleIsValid(heap_tuple))
+            if (HeapTupleIsValid(heap_tuple))
             {
-                heap_tuple = update_entity_tuple(resultRelInfo, slot, estate,
-                                                 heap_tuple);
+                update_entity_tuple(resultRelInfo, slot, estate, heap_tuple);
             }
+
             /* close the ScanDescription */
             table_endscan(scan_desc);
         }
@@ -497,7 +534,7 @@ static void process_update_list(CustomScanState *node)
 
 static TupleTableSlot *exec_cypher_set(CustomScanState *node)
 {
-    cypher_set_custom_scan_state *css = (cypher_set_custom_scan_state *)node;
+    cypher_set_custom_scan_state *css = (cypher_set_custom_scan_state *) node;
     ResultRelInfo *saved_resultRelInfo;
     EState *estate = css->css.ss.ps.state;
     ExprContext *econtext = css->css.ss.ps.ps_ExprContext;
@@ -505,13 +542,15 @@ static TupleTableSlot *exec_cypher_set(CustomScanState *node)
 
     saved_resultRelInfo = estate->es_result_relation_info;
 
-    //Process the subtree first
+    // Process the subtree first
     Decrement_Estate_CommandId(estate);
     slot = ExecProcNode(node->ss.ps.lefttree);
     Increment_Estate_CommandId(estate);
 
     if (TupIsNull(slot))
+    {
         return NULL;
+    }
 
     econtext->ecxt_scantuple =
         node->ss.ps.lefttree->ps_ProjInfo->pi_exprContext->ecxt_scantuple;
@@ -547,19 +586,21 @@ static void end_cypher_set(CustomScanState *node)
 
 static void rescan_cypher_set(CustomScanState *node)
 {
-    cypher_set_custom_scan_state *css = (cypher_set_custom_scan_state *)node;
+    cypher_set_custom_scan_state *css = (cypher_set_custom_scan_state *) node;
     char *clause_name = css->set_list->clause_name;
 
-     ereport(ERROR,
-             (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                      errmsg("cypher %s clause cannot be rescaned",
-                             clause_name),
-                      errhint("its unsafe to use joins in a query with a Cypher %s clause", clause_name)));
+    ereport(
+        ERROR,
+        (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+         errmsg("cypher %s clause cannot be rescaned", clause_name),
+         errhint("its unsafe to use joins in a query with a Cypher %s clause",
+                 clause_name)));
 }
 
 Node *create_cypher_set_plan_state(CustomScan *cscan)
 {
-    cypher_set_custom_scan_state *cypher_css = palloc0(sizeof(cypher_set_custom_scan_state));
+    cypher_set_custom_scan_state *cypher_css =
+        palloc0(sizeof(cypher_set_custom_scan_state));
     cypher_update_information *set_list;
     char *serialized_data;
     Const *c;
@@ -568,7 +609,7 @@ Node *create_cypher_set_plan_state(CustomScan *cscan)
 
     // get the serialized data structure from the Const and deserialize it.
     c = linitial(cscan->custom_private);
-    serialized_data = (char *)c->constvalue;
+    serialized_data = (char *) c->constvalue;
     set_list = stringToNode(serialized_data);
 
     Assert(is_ag_node(set_list, cypher_update_information));
@@ -579,5 +620,5 @@ Node *create_cypher_set_plan_state(CustomScan *cscan)
     cypher_css->css.ss.ps.type = T_CustomScanState;
     cypher_css->css.methods = &cypher_set_exec_methods;
 
-    return (Node *)cypher_css;
+    return (Node *) cypher_css;
 }

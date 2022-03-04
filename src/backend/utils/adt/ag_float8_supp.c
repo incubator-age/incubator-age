@@ -6,29 +6,32 @@
  *
  * Portions Copyright (c) 1994, The Regents of the University of California
  *
- * Permission to use, copy, modify, and distribute this software and its documentation for any purpose,
- * without fee, and without a written agreement is hereby granted, provided that the above copyright notice
- * and this paragraph and the following two paragraphs appear in all copies.
+ * Permission to use, copy, modify, and distribute this software and its
+ * documentation for any purpose, without fee, and without a written agreement
+ * is hereby granted, provided that the above copyright notice and this
+ * paragraph and the following two paragraphs appear in all copies.
  *
- * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR DIRECT,
- * INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS,
- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY
- * OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
+ * DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING
+ * LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION,
+ * EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  *
- * THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING,
- * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ * FITNESS FOR A PARTICULAR PURPOSE.
  *
- * THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA
- * HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+ * THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF
+ * CALIFORNIA HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+ * ENHANCEMENTS, OR MODIFICATIONS.
  */
-
 
 #include "postgres.h"
 
 #include <math.h>
 
-#include "utils/builtins.h"
 #include "utils/ag_float8_supp.h"
+#include "utils/builtins.h"
 
 /*
  * This is a copy of float8in_internal with a slight modification, it doesn't
@@ -69,7 +72,9 @@ float8 float8in_internal_null(char *num, char **endptr_p, const char *type_name,
      * strtod() on different platforms.
      */
     if (*num == '\0')
+    {
         return 0;
+    }
 
     errno = 0;
     val = strtod(num, &endptr);
@@ -146,10 +151,13 @@ float8 float8in_internal_null(char *num, char **endptr_p, const char *type_name,
             }
         }
         else
+        {
             return 0;
+        }
     }
+
 #ifdef HAVE_BUGGY_SOLARIS_STRTOD
-else
+    else
     {
         /*
          * Many versions of Solaris have a bug wherein strtod sets endptr to
@@ -157,9 +165,11 @@ else
          * "infinity".
          */
         if (endptr != num && endptr[-1] == '\0')
+        {
             endptr--;
+        }
     }
-#endif   /* HAVE_BUGGY_SOLARIS_STRTOD */
+#endif /* HAVE_BUGGY_SOLARIS_STRTOD */
 
     /* skip trailing whitespace */
     while (*endptr != '\0' && isspace((unsigned char) *endptr))
@@ -167,9 +177,13 @@ else
 
     /* report stopping point if wanted, else complain if not end of string */
     if (endptr_p)
+    {
         *endptr_p = endptr;
+    }
     else if (*endptr != '\0')
+    {
         return 0;
+    }
 
     *is_valid = true;
 

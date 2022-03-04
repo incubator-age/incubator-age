@@ -19,9 +19,9 @@
 
 #include "postgres.h"
 
-#include "access/xact.h"
 #include "access/genam.h"
 #include "access/heapam.h"
+#include "access/xact.h"
 #include "catalog/dependency.h"
 #include "catalog/objectaddress.h"
 #include "commands/defrem.h"
@@ -35,9 +35,8 @@
 #include "nodes/pg_list.h"
 #include "nodes/value.h"
 #include "parser/parser.h"
-#include "utils/fmgroids.h"
-#include "utils/relcache.h"
 #include "utils/rel.h"
+#include "utils/relcache.h"
 
 #include "catalog/ag_graph.h"
 #include "catalog/ag_label.h"
@@ -69,13 +68,13 @@ Datum create_graph(PG_FUNCTION_ARGS)
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                         errmsg("graph name must not be NULL")));
     }
+
     graph_name = PG_GETARG_NAME(0);
 
     graph_name_str = NameStr(*graph_name);
     if (graph_exists(graph_name_str))
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_UNDEFINED_SCHEMA),
+        ereport(ERROR, (errcode(ERRCODE_UNDEFINED_SCHEMA),
                         errmsg("graph \"%s\" already exists", graph_name_str)));
     }
 
@@ -83,10 +82,10 @@ Datum create_graph(PG_FUNCTION_ARGS)
 
     insert_graph(graph_name, nsp_id);
 
-    //Increment the Command counter before create the generic labels.
+    // Increment the Command counter before create the generic labels.
     CommandCounterIncrement();
 
-    //Create the default label tables
+    // Create the default label tables
     graph = graph_name->data;
     create_label(graph, AG_DEFAULT_LABEL_VERTEX, LABEL_TYPE_VERTEX, NIL);
     create_label(graph, AG_DEFAULT_LABEL_EDGE, LABEL_TYPE_EDGE, NIL);
@@ -131,9 +130,9 @@ static Oid create_schema_for_graph(const Name graph_name)
     seq_stmt = makeNode(CreateSeqStmt);
     seq_stmt->sequence = makeRangeVar(graph_name_str, LABEL_ID_SEQ_NAME, -1);
     integer = SystemTypeName("int4");
-    data_type = makeDefElem("as", (Node *)integer, -1);
-    maxvalue = makeDefElem("maxvalue", (Node *)makeInteger(LABEL_ID_MAX), -1);
-    cycle = makeDefElem("cycle", (Node *)makeInteger(true), -1);
+    data_type = makeDefElem("as", (Node *) integer, -1);
+    maxvalue = makeDefElem("maxvalue", (Node *) makeInteger(LABEL_ID_MAX), -1);
+    cycle = makeDefElem("cycle", (Node *) makeInteger(true), -1);
     seq_stmt->options = list_make3(data_type, maxvalue, cycle);
     seq_stmt->ownerId = InvalidOid;
     seq_stmt->for_identity = false;
@@ -160,15 +159,15 @@ Datum drop_graph(PG_FUNCTION_ARGS)
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                         errmsg("graph name must not be NULL")));
     }
+
     graph_name = PG_GETARG_NAME(0);
     cascade = PG_GETARG_BOOL(1);
 
     graph_name_str = NameStr(*graph_name);
     if (!graph_exists(graph_name_str))
     {
-        ereport(ERROR,
-                (errcode(ERRCODE_UNDEFINED_SCHEMA),
-                 errmsg("graph \"%s\" does not exist", graph_name_str)));
+        ereport(ERROR, (errcode(ERRCODE_UNDEFINED_SCHEMA),
+                        errmsg("graph \"%s\" does not exist", graph_name_str)));
     }
 
     drop_schema_for_graph(graph_name_str, cascade);
@@ -208,7 +207,7 @@ static void drop_schema_for_graph(char *graph_name_str, const bool cascade)
 
     // DROP SCHEMA `graph_name_str` [ CASCADE ]
     behavior = cascade ? DROP_CASCADE : DROP_RESTRICT;
-    remove_schema((Node *)schema_name, behavior);
+    remove_schema((Node *) schema_name, behavior);
     // CommandCounterIncrement() is called in performDeletion()
 }
 
@@ -231,10 +230,10 @@ static void remove_schema(Node *schema_name, DropBehavior behavior)
          * before calling this function, this condition is already checked in
          * drop_graph()
          */
-        ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
-                        errmsg("ag_graph catalog is corrupted"),
-                        errhint("Schema \"%s\" does not exist",
-                                strVal(schema_name))));
+        ereport(ERROR,
+                (errcode(ERRCODE_INTERNAL_ERROR),
+                 errmsg("ag_graph catalog is corrupted"),
+                 errhint("Schema \"%s\" does not exist", strVal(schema_name))));
     }
 
     // removeType is always OBJECT_SCHEMA
@@ -277,11 +276,13 @@ Datum alter_graph(PG_FUNCTION_ARGS)
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                         errmsg("graph_name must not be NULL")));
     }
+
     if (PG_ARGISNULL(1))
     {
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                         errmsg("operation must not be NULL")));
     }
+
     if (PG_ARGISNULL(2))
     {
         ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -355,14 +356,16 @@ List *get_graphnames(void)
     {
         tuple = systable_getnext(scan_desc);
         if (!HeapTupleIsValid(tuple))
+        {
             break;
+        }
 
         ExecClearTuple(slot);
         ExecStoreHeapTuple(tuple, slot, false);
 
         slot_getallattrs(slot);
 
-        str = DatumGetCString(slot->tts_values[0]);
+        str = DatumGetCString(slot->tts_values[Anum_ag_graph_name - 1]);
         graphnames = lappend(graphnames, str);
     }
 
@@ -378,11 +381,11 @@ void drop_graphs(List *graphnames)
 {
     ListCell *lc;
 
-    foreach(lc, graphnames)
+    foreach (lc, graphnames)
     {
         char *graphname = lfirst(lc);
 
-        DirectFunctionCall2(
-            drop_graph, CStringGetDatum(graphname), BoolGetDatum(true));
+        DirectFunctionCall2(drop_graph, CStringGetDatum(graphname),
+                            BoolGetDatum(true));
     }
 }

@@ -42,8 +42,6 @@
 #define edge_tuple_end_id Anum_ag_label_edge_table_end_id - 1
 #define edge_tuple_properties Anum_ag_label_edge_table_properties - 1
 
-
-
 #define Anum_ag_label_name 1
 #define Anum_ag_label_graph 2
 #define Anum_ag_label_id 3
@@ -53,7 +51,6 @@
 #define Natts_ag_label 5
 
 #define ag_label_relation_id() ag_relation_id("ag_label", "table")
-#define ag_label_oid_index_id() ag_relation_id("ag_label_oid_index", "index")
 #define ag_label_name_graph_index_id() \
     ag_relation_id("ag_label_name_graph_index", "index")
 #define ag_label_graph_id_index_id() \
@@ -66,21 +63,22 @@
 #define LABEL_KIND_VERTEX 'v'
 #define LABEL_KIND_EDGE 'e'
 
-Oid insert_label(const char *label_name, Oid label_graph, int32 label_id,
-                 char label_kind, Oid label_relation);
+void insert_label(const char *label_name, uint32 graph_id, int32 label_id,
+                  char label_kind, Oid label_relation);
 void delete_label(Oid relation);
 
-Oid get_label_oid(const char *label_name, Oid label_graph);
-int32 get_label_id(const char *label_name, Oid label_graph);
-Oid get_label_relation(const char *label_name, Oid label_graph);
-char *get_label_relation_name(const char *label_name, Oid label_graph);
+int32 get_label_id(const char *label_name, uint32 graph_id);
+Oid get_label_relation(const char *label_name, uint32 graph_id);
+char *get_label_relation_name(const char *label_name, uint32 graph_id);
 
-bool label_id_exists(Oid label_graph, int32 label_id);
-RangeVar *get_label_range_var(char *graph_name, Oid graph_oid, char *label_name);
+bool label_id_exists(uint32 graph_id, int32 label_id);
+RangeVar *get_label_range_var(char *graph_name, uint32 graph_id,
+                              char *label_name);
 
-List *get_all_edge_labels_per_graph(EState *estate, Oid graph_oid);
+List *get_all_edge_labels_per_graph(EState *estate, uint32 graph_id);
 
+// FIXME: Alex Kwak
 #define label_exists(label_name, label_graph) \
-    OidIsValid(get_label_oid(label_name, label_graph))
+    OidIsValid(get_label_id(label_name, label_graph))
 
 #endif

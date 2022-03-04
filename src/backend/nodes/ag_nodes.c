@@ -23,9 +23,9 @@
 
 #include "nodes/ag_nodes.h"
 #include "nodes/cypher_copyfuncs.h"
+#include "nodes/cypher_nodes.h"
 #include "nodes/cypher_outfuncs.h"
 #include "nodes/cypher_readfuncs.h"
-#include "nodes/cypher_nodes.h"
 
 static bool equal_ag_node(const ExtensibleNode *a, const ExtensibleNode *b);
 
@@ -60,7 +60,7 @@ const char *node_names[] = {
     "cypher_update_item",
     "cypher_delete_information",
     "cypher_delete_item",
-    "cypher_merge_information"
+    "cypher_merge_information",
 };
 
 /*
@@ -70,12 +70,8 @@ const char *node_names[] = {
  */
 #define DEFINE_NODE_METHODS(type) \
     { \
-        CppAsString(type), \
-        sizeof(type), \
-        copy_ag_node, \
-        equal_ag_node, \
-        CppConcat(out_, type), \
-        read_ag_node \
+        CppAsString(type), sizeof(type), copy_ag_node, equal_ag_node, \
+            CppConcat(out_, type), read_ag_node \
     }
 
 /*
@@ -85,12 +81,8 @@ const char *node_names[] = {
  */
 #define DEFINE_NODE_METHODS_EXTENDED(type) \
     { \
-        CppAsString(type), \
-        sizeof(type), \
-        CppConcat(copy_, type), \
-        equal_ag_node, \
-        CppConcat(out_, type), \
-        CppConcat(read_, type) \
+        CppAsString(type), sizeof(type), CppConcat(copy_, type), \
+            equal_ag_node, CppConcat(out_, type), CppConcat(read_, type) \
     }
 
 // This list must match ag_node_tag.
@@ -123,7 +115,7 @@ const ExtensibleNodeMethods node_methods[] = {
     DEFINE_NODE_METHODS_EXTENDED(cypher_update_item),
     DEFINE_NODE_METHODS_EXTENDED(cypher_delete_information),
     DEFINE_NODE_METHODS_EXTENDED(cypher_delete_item),
-    DEFINE_NODE_METHODS_EXTENDED(cypher_merge_information)
+    DEFINE_NODE_METHODS_EXTENDED(cypher_merge_information),
 };
 
 static bool equal_ag_node(const ExtensibleNode *a, const ExtensibleNode *b)
@@ -137,7 +129,9 @@ void register_ag_nodes(void)
     int i;
 
     if (initialized)
+    {
         return;
+    }
 
     for (i = 0; i < lengthof(node_methods); i++)
         RegisterExtensibleNodeMethods(&node_methods[i]);
@@ -149,7 +143,7 @@ ExtensibleNode *_new_ag_node(Size size, ag_node_tag tag)
 {
     ExtensibleNode *n;
 
-    n = (ExtensibleNode *)palloc0fast(size);
+    n = (ExtensibleNode *) palloc0fast(size);
     n->type = T_ExtensibleNode;
     n->extnodename = node_names[tag];
 

@@ -29,7 +29,7 @@
  * Deserialization functions for AGE's ExtensibleNodes. We assign
  * each node to its deserialization functionin the DEFINE_NODE_METHODS
  * and DEFINE_NODE_METHODS_EXTENDED macros in ag_nodes.c.
-
+ *
  *
  * All functions are dependent on the pg_strtok function. We do not
  * setup pg_strtok. That is for the the caller to do. By default that

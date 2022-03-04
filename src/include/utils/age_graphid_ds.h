@@ -20,10 +20,10 @@
 #ifndef AG_AGE_GRAPHID_DS_H
 #define AG_AGE_GRAPHID_DS_H
 
-#define IS_GRAPHID_STACK_EMPTY(stack) \
-            get_stack_size(stack) == 0
-#define PEEK_GRAPHID_STACK(stack) \
-            (graphid) get_graphid(peek_stack_head(stack))
+#include "utils/graphid.h"
+
+#define IS_GRAPHID_STACK_EMPTY(stack) get_stack_size(stack) == 0
+#define PEEK_GRAPHID_STACK(stack) (graphid) get_graphid(peek_stack_head(stack))
 
 /*
  * We declare the GRAPHID data structures here, and in this way, so that they
