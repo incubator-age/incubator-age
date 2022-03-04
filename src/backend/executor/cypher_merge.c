@@ -52,19 +52,21 @@ static bool check_path(cypher_merge_custom_scan_state *css,
 static void process_path(cypher_merge_custom_scan_state *css);
 static void mark_tts_isnull(TupleTableSlot *slot);
 
-const CustomExecMethods cypher_merge_exec_methods = {MERGE_SCAN_STATE_NAME,
-                                                     begin_cypher_merge,
-                                                     exec_cypher_merge,
-                                                     end_cypher_merge,
-                                                     rescan_cypher_merge,
-                                                     NULL,
-                                                     NULL,
-                                                     NULL,
-                                                     NULL,
-                                                     NULL,
-                                                     NULL,
-                                                     NULL,
-                                                     NULL};
+const CustomExecMethods cypher_merge_exec_methods = {
+    MERGE_SCAN_STATE_NAME,
+    begin_cypher_merge,
+    exec_cypher_merge,
+    end_cypher_merge,
+    rescan_cypher_merge,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
 
 /*
  * Initializes the MERGE Execution Node at the begginning of the execution

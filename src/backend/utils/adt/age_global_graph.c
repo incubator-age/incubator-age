@@ -207,7 +207,7 @@ static List *get_ag_labels_names(Snapshot snapshot, uint32 graph_id,
     }
 
     /* close up scan */
-    heap_endscan(scan_desc);
+    table_endscan(scan_desc);
     table_close(ag_label, ShareLock);
 
     return labels;
@@ -392,7 +392,7 @@ static void load_vertex_hashtable(GRAPH_global_context *ggctx)
         }
 
         /* end the scan and close the relation */
-        heap_endscan(scan_desc);
+        table_endscan(scan_desc);
         table_close(graph_vertex_label, ShareLock);
     }
 }
@@ -521,7 +521,7 @@ static void load_edge_hashtable(GRAPH_global_context *ggctx)
         }
 
         /* end the scan and close the relation */
-        heap_endscan(scan_desc);
+        table_endscan(scan_desc);
         table_close(graph_edge_label, ShareLock);
     }
 }

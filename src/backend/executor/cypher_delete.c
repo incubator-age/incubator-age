@@ -57,19 +57,21 @@ static agtype_value *extract_entity(CustomScanState *node,
 static void delete_entity(EState *estate, ResultRelInfo *resultRelInfo,
                           HeapTuple tuple);
 
-const CustomExecMethods cypher_delete_exec_methods = {DELETE_SCAN_STATE_NAME,
-                                                      begin_cypher_delete,
-                                                      exec_cypher_delete,
-                                                      end_cypher_delete,
-                                                      rescan_cypher_delete,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL};
+const CustomExecMethods cypher_delete_exec_methods = {
+    DELETE_SCAN_STATE_NAME,
+    begin_cypher_delete,
+    exec_cypher_delete,
+    end_cypher_delete,
+    rescan_cypher_delete,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
 
 /*
  * Initialization at the beginning of execution. Setup the child node,

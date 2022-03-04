@@ -27,13 +27,25 @@
 #include "optimizer/cypher_pathnode.h"
 
 const CustomPathMethods cypher_create_path_methods = {
-    CREATE_PATH_NAME, plan_cypher_create_path, NULL};
-const CustomPathMethods cypher_set_path_methods = {SET_PATH_NAME,
-                                                   plan_cypher_set_path, NULL};
+    CREATE_PATH_NAME,
+    plan_cypher_create_path,
+    NULL,
+};
+const CustomPathMethods cypher_set_path_methods = {
+    SET_PATH_NAME,
+    plan_cypher_set_path,
+    NULL,
+};
 const CustomPathMethods cypher_delete_path_methods = {
-    DELETE_PATH_NAME, plan_cypher_delete_path, NULL};
+    DELETE_PATH_NAME,
+    plan_cypher_delete_path,
+    NULL,
+};
 const CustomPathMethods cypher_merge_path_methods = {
-    MERGE_PATH_NAME, plan_cypher_merge_path, NULL};
+    MERGE_PATH_NAME,
+    plan_cypher_merge_path,
+    NULL,
+};
 
 CustomPath *create_cypher_create_path(PlannerInfo *root, RelOptInfo *rel,
                                       List *custom_private)

@@ -180,7 +180,7 @@ bool entity_exists(EState *estate, uint32 graph_id, graphid id)
         result = false;
     }
 
-    heap_endscan(scan_desc);
+    table_endscan(scan_desc);
     table_close(rel, RowExclusiveLock);
 
     return result;

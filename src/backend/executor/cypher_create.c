@@ -52,19 +52,21 @@ static Datum create_vertex(cypher_create_custom_scan_state *css,
 
 static void process_pattern(cypher_create_custom_scan_state *css);
 
-const CustomExecMethods cypher_create_exec_methods = {CREATE_SCAN_STATE_NAME,
-                                                      begin_cypher_create,
-                                                      exec_cypher_create,
-                                                      end_cypher_create,
-                                                      rescan_cypher_create,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL,
-                                                      NULL};
+const CustomExecMethods cypher_create_exec_methods = {
+    CREATE_SCAN_STATE_NAME,
+    begin_cypher_create,
+    exec_cypher_create,
+    end_cypher_create,
+    rescan_cypher_create,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
 
 static void begin_cypher_create(CustomScanState *node, EState *estate,
                                 int eflags)

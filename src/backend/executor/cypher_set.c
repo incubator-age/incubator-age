@@ -47,19 +47,21 @@ static HeapTuple update_entity_tuple(ResultRelInfo *resultRelInfo,
                                      TupleTableSlot *elemTupleSlot,
                                      EState *estate, HeapTuple old_tuple);
 
-const CustomExecMethods cypher_set_exec_methods = {SET_SCAN_STATE_NAME,
-                                                   begin_cypher_set,
-                                                   exec_cypher_set,
-                                                   end_cypher_set,
-                                                   rescan_cypher_set,
-                                                   NULL,
-                                                   NULL,
-                                                   NULL,
-                                                   NULL,
-                                                   NULL,
-                                                   NULL,
-                                                   NULL,
-                                                   NULL};
+const CustomExecMethods cypher_set_exec_methods = {
+    SET_SCAN_STATE_NAME,
+    begin_cypher_set,
+    exec_cypher_set,
+    end_cypher_set,
+    rescan_cypher_set,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
 
 static void begin_cypher_set(CustomScanState *node, EState *estate, int eflags)
 {

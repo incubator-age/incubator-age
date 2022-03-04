@@ -28,13 +28,21 @@
 #include "optimizer/cypher_createplan.h"
 
 const CustomScanMethods cypher_create_plan_methods = {
-    "Cypher Create", create_cypher_create_plan_state};
+    "Cypher Create",
+    create_cypher_create_plan_state,
+};
 const CustomScanMethods cypher_set_plan_methods = {
-    "Cypher Set", create_cypher_set_plan_state};
+    "Cypher Set",
+    create_cypher_set_plan_state,
+};
 const CustomScanMethods cypher_delete_plan_methods = {
-    "Cypher Delete", create_cypher_delete_plan_state};
+    "Cypher Delete",
+    create_cypher_delete_plan_state,
+};
 const CustomScanMethods cypher_merge_plan_methods = {
-    "Cypher Merge", create_cypher_merge_plan_state};
+    "Cypher Merge",
+    create_cypher_merge_plan_state,
+};
 
 Plan *plan_cypher_create_path(PlannerInfo *root, RelOptInfo *rel,
                               CustomPath *best_path, List *tlist, List *clauses,
