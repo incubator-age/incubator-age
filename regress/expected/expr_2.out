@@ -5634,6 +5634,7 @@ SELECT * from cypher('keys', $$RETURN keys("string")$$) as (keys agtype);
 ERROR:  keys() argument must be a vertex, edge, object or null
 SELECT * from cypher('keys', $$MATCH u=()-[]-() RETURN keys(u)$$) as (keys agtype);
 ERROR:  keys() argument must be a vertex, edge, object or null
+CONTEXT:  parallel worker
 SELECT create_graph('list');
 NOTICE:  graph "list" has been created
  create_graph 
