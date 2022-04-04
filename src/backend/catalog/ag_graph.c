@@ -54,9 +54,7 @@ void insert_graph(const Name graph_name, const Oid nsp_id)
     AssertArg(OidIsValid(nsp_id));
 
     ag_graph = table_open(ag_graph_relation_id(), RowExclusiveLock);
-    values[Anum_ag_graph_id - 1] = DatumGetInt64(DirectFunctionCall1(
-        nextval_oid,
-        ObjectIdGetDatum(RangeVarGetRelid(sequence, NoLock, false))));
+    values[Anum_ag_graph_id - 1] = ObjectIdGetDatum(nsp_id);
     nulls[Anum_ag_graph_id - 1] = false;
 
     values[Anum_ag_graph_name - 1] = NameGetDatum(graph_name);

@@ -26,10 +26,12 @@
 CREATE SEQUENCE IF NOT EXISTS ag_catalog._ag_graph_id_seq MINVALUE 1;
 
 CREATE TABLE ag_graph (
-  id INTEGER PRIMARY KEY DEFAULT nextval('ag_catalog._ag_graph_id_seq'),
+  graphid oid NOT NULL,
   name name NOT NULL,
   namespace regnamespace NOT NULL
 );
+
+CREATE UNIQUE INDEX ag_graph_graphid_index ON ag_graph USING btree (graphid);
 
 CREATE UNIQUE INDEX ag_graph_name_index ON ag_graph USING btree (name);
 
@@ -43,6 +45,7 @@ CREATE DOMAIN label_id AS int NOT NULL CHECK (VALUE > 0 AND VALUE <= 65535);
 CREATE DOMAIN label_kind AS "char" NOT NULL CHECK (VALUE = 'v' OR VALUE = 'e');
 
 CREATE TABLE ag_label (
+
   name name NOT NULL,
   graph INTEGER NOT NULL,
   id label_id,
@@ -50,7 +53,7 @@ CREATE TABLE ag_label (
   relation regclass NOT NULL,
   CONSTRAINT fk_graph_id
     FOREIGN KEY(graph)
-    REFERENCES ag_graph(id)
+    REFERENCES ag_graph(graphid)
 );
 
 CREATE UNIQUE INDEX ag_label_name_graph_index
